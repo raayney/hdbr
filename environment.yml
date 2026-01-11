@@ -1,0 +1,13 @@
+name: basket-dispersion-ml
+dependencies:
+  - python>=3.10
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - pytorch
+  - matplotlib
+  - jupyter
+  - pip
+  - pip:
+      - yfinance

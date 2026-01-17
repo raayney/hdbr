@@ -1,399 +1,282 @@
-# 4. Label Generation and Training Data
+# 4. Label generation and training data
 
 ## 4.1 Overview
 
-The neural network requires a large set of **labeled examples** to learn the mapping from market states to model-free fair values (or bounds). This section describes how these labels are generated and how the training dataset is constructed.
+The neural network is trained on supervised examples $`(x_t, y_t)`$ where
 
-## 4.2 Synthetic IV surface model
+- $`x_t \in \mathbb{R}^{274}`$ is the scaled feature vector for date $`t`$ (spots, forwards, rates, dividend yields, implied volatilities, padding),
+- $`y_t \in \mathbb{R}`$ is a scalar label representing the three‑month dispersion fair value on that date, computed by Monte Carlo simulation.
 
-### 4.2.1 Conceptual approach
+This document describes:
 
-For each historical date and each asset (index + 20 constituents), we need a plausible 3-month implied volatility surface. We generate these synthetically via a **parametric smile model** rather than reading from live market data.
+- the stochastic model used for simulation,
+- how dispersion payoffs are computed path by path,
+- how labels are generated for all dates and split into train, validation and test sets,
+- the file formats used to store labels.
 
-The synthetic IV surface serves two purposes:
+The implementation corresponds to:
 
-1. **Feature construction:** The NN input \(x_i\) includes IVs (and option prices derived from them) for each strike and maturity.
-2. **Label generation:** The same synthetic surfaces are fed into the MOT/LP solver to compute ground-truth bounds \((L(x_i), U(x_i))\).
+- `src/labels/monte_carlo_simulator.py`
+- `src/labels/dispersion_payoff.py`
+- `src/labels/generate_labels.py`
 
-### 4.2.2 Functional form
-
-For each asset \(i\) on date \(t\), the 3-month implied volatility is modeled as a quadratic function of log-moneyness:
-
-\[
-\sigma_i(k,t) = a_i(t) + b_i(t) \cdot k + c_i(t) \cdot k^2,
-\]
-
-where \(k = \log(K/F)\) is the log-moneyness (log of strike divided by forward), and \((a_i, b_i, c_i)\) are time-dependent parameters.
-
-**Interpretation:**
-
-- \(a_i(t)\): ATM (at-the-money) level of implied volatility on date \(t\).
-- \(b_i(t)\): skew (asymmetry across strikes).
-- \(c_i(t)\): smile curvature.
-
-### 4.2.3 Parameter calibration
-
-Parameters are calibrated to match typical EuroStoxx 50 behaviour:
-
-**ATM level \(a_i(t)\):**
-
-- For the index (i=0): Use **historical realised volatility** (e.g., 30-day rolling window) from Yahoo prices, scaled by a factor (e.g., 1.2) to approximate implied vs realised.
-  
-  \[
-  a_0(t) = 1.2 \times \text{RV}^0_{t-30:t}.
-  \]
-
-- For each constituent \(i \in \{1,\dots,20\}\): Similarly,
-  
-  \[
-  a_i(t) = 1.2 \times \text{RV}^i_{t-30:t}.
-  \]
-
-**Skew \(b_i(t)\):**
-
-- For equity indices and single stocks, typical skew is **negative** (puts more expensive than calls relatively).
-- Set \(b_i(t) = -0.05\) (constant across all dates and assets, or vary slightly with regime if desired).
-
-**Smile \(c_i(t)\):**
-
-- Positive curvature, typical for equity options.
-- Set \(c_i(t) = 0.01\) (constant, or calibrated to match observed option surfaces if real data is available).
-
-**Strikes grid:**
-
-- Compute IVs on the fixed moneyness grid:
-  \[
-  k \in \{-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3\}.
-  \]
-
-### 4.2.4 Converting IV to option prices
-
-Once the IV surface is constructed, convert to option prices using the **Black–Scholes formula**:
-
-\[
-C_{\text{BS}}(S, K, T, r, q, \sigma) = S e^{-q T} \Phi(d_1) - K e^{-rT} \Phi(d_2),
-\]
-
-where \(\sigma = \sigma_i(k, t)\) is the strike-dependent IV from above, \(q\) is the dividend yield, and \(d_1, d_2\) are the usual Black–Scholes parameters.
-
-For puts, use put-call parity:
-
-\[
-P = C + K e^{-rT} - S e^{-q T}.
-\]
-
-### 4.2.5 Implementation in code
-
-Create a function (pseudocode):
-
-```python
-def synthetic_iv_surface(spot, forward, t_now, t_mat, 
-                          realized_vol, skew=-0.05, smile=0.01):
-    """
-    Args:
-        spot: current spot price
-        forward: forward price at maturity t_mat
-        t_now: current date (numeric, e.g., datetime to float)
-        t_mat: maturity date (numeric)
-        realized_vol: historical realized vol (30-day window)
-        skew, smile: model parameters
-    
-    Returns:
-        dict with keys 'moneyness', 'iv', 'call_price', 'put_price'
-    """
-    tau = t_mat - t_now  # years to maturity
-    atm_iv = 1.2 * realized_vol
-    
-    moneyness_grid = [-0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3]
-    ivs = []
-    call_prices = []
-    put_prices = []
-    
-    for k in moneyness_grid:
-        # Quadratic smile
-        iv = atm_iv + skew * k + smile * k**2
-        ivs.append(iv)
-        
-        # Compute strike from moneyness
-        K = forward * np.exp(k)
-        
-        # Black-Scholes prices
-        c = black_scholes_call(spot, K, tau, r, q, iv)
-        p = c - forward * np.exp(-r * tau) + K * np.exp(-r * tau)
-        
-        call_prices.append(c)
-        put_prices.append(p)
-    
-    return {
-        'moneyness': moneyness_grid,
-        'iv': ivs,
-        'call_price': call_prices,
-        'put_price': put_prices
-    }
-```
-
-## 4.3 Feature construction
-
-For each date \(t\) in the historical sample, construct a feature vector
-\(x_t \in \mathbb{R}^{n_{\text{in}}}\) summarising the market state
-(index + constituents + option surfaces). This vector is the input to the
-neural network.
-
-### 4.3.1 Spot and forward prices
-
-For maturity \(T = t + 0.25\) years (3 months), record:
-
-- SX5E spot price: \(S_0^0(t)\).
-- SX5E forward price: \(F_0^0(t,T)\).
-- Constituent spot prices: \(S_0^i(t)\), \(i = 1,\dots,20\).
-- Constituent forward prices: \(F_0^i(t,T)\), \(i = 1,\dots,20\).
-
-Total: \( (1 + 20) \times 2 = 42 \) scalar features.
-
-### 4.3.2 Risk-free rates and dividend yields
-
-- 3-month risk-free rate \(r(t)\) (single value, applied to all assets).
-- Index dividend yield \(q^0(t)\).
-- Constituent dividend yields \(q^i(t)\), \(i = 1,\dots,20\), inferred from
-  spot–forward relationships if not available directly.
-
-Total: \(1 + (1 + 20) = 22\) features.
-
-### 4.3.3 Implied volatility curves
-
-For each asset \(i = 0,1,\dots,20\) (index + 20 stocks) and each moneyness
-level \(k \in \{-0.3, -0.2, -0.1, 0.0, 0.1, 0.2, 0.3\}\):
-
-- 3-month implied volatility \(\sigma_i(k,t)\) from the synthetic IV model.
-
-This gives:
-
-- 21 assets × 7 strikes = 147 IV features.
-
-If desired, option prices (calls or puts) at the same grid can be added,
-but they are one-to-one with IVs given \(S, F, r, q\), so using IVs alone
-is sufficient.
-
-### 4.3.4 Optional term-structure and skew features
-
-To enrich the feature set, the synthetic IV model can be extended to
-additional maturities, e.g. 1M and 6M. Then define:
-
-- **Term structure ratios:**
-  - \(\sigma_i^{1M}(0) / \sigma_i^{3M}(0)\) and
-    \(\sigma_i^{6M}(0) / \sigma_i^{3M}(0)\), for each asset \(i\).
-- **Skew indicators:**
-  - \(\sigma_i(k_{\text{put}}) - \sigma_i(k_{\text{call}})\) for
-    symmetric OTM strikes (e.g., \(k_{\text{put}} = -0.2\),
-    \(k_{\text{call}} = 0.2\)).
-
-These additional features are optional and can be introduced later if the
-baseline model underperforms.
-
-### 4.3.5 Normalisation
-
-All features are normalised before being fed into the neural network:
-
-\[
-x_{\text{norm}} = \frac{x - \mu}{\sigma + \varepsilon},
-\]
-
-where \(\mu\) and \(\sigma\) are the mean and standard deviation computed
-across the **training set only**, and \(\varepsilon > 0\) is a small number
-to avoid division by zero.
-
-The normalisation parameters \((\mu, \sigma)\) are stored (e.g. in a YAML
-file under `config/`) and applied consistently to validation and test
-features.
+and the outputs under `output/datasets/labels`.
 
 ---
 
-## 4.4 Label generation
+## 4.2 Monte Carlo model for labels
 
-Each date \(t\) yields a label \(y_t\) that the neural network is trained
-to approximate. Two approaches are considered: a fully model-free MOT
-approach and a simpler model-based Monte Carlo approach.
+Labels are generated by simulating a correlated geometric Brownian motion (GBM) for the 21 underlyings (index plus 20 constituents), over a three‑month horizon, using parameters extracted from synthetic implied volatilities and historical correlations.
 
-### 4.4.1 Approach A: model-free MOT / linear programming
+### 4.2.1 Inputs per date
 
-This approach is conceptually aligned with the Neufeld–Sester framework.
+For each feature date $`t`$ in the dataset, the label generator reconstructs the required market inputs by:
 
-1. **Discretise the terminal space.**  
-   Construct a finite grid of possible terminal values
-   \(\{(S_{T,n}^0,\dots,S_{T,n}^{20})\}_{n=1}^{N_{\text{grid}}}\) based on
-   current forwards and synthetic IVs.
+1. Loading the scaled feature vector $`x_t`$ from `X_train.npy`, `X_val.npy` or `X_test.npy`.
+2. Applying the stored scaler `scaler.pkl` to un‑scale back to the raw feature space.
+3. Parsing the raw feature vector into:
+   - spots $`S_0^i(t)`$ for $`i = 0,\dots,20`$,
+   - forwards $`F_0^i(t)`$,
+   - three‑month rates $`r_i(t)`$ and dividend yields $`q_i(t)`$,
+   - three‑month implied volatility curves $`\sigma_i^{(t)}(k)`$ across the moneyness grid.
 
-2. **Impose marginal constraints.**  
-   For each asset \(i\), match the marginal distribution implied by the
-   synthetic vanilla prices at maturity \(T\), for example via
-   Breeden–Litzenberger-type approximations or by fitting a discrete
-   distribution whose option prices are close to the synthetic ones.
+4. Extracting ATM volatilities for each asset by taking the implied volatility at the at‑the‑money moneyness level, typically the central grid point $`k = 0`$:
 
-3. **Impose martingale constraints.**  
-   Ensure that for each asset the discounted price process is a martingale,
-   typically implemented as linear constraints linking today’s forward
-   price and the expected terminal value under the discrete measure.
+   $`\sigma_i^{\text{ATM}}(t) := \sigma_i^{(t)}(0).`$
 
-4. **Optimise dispersion payoff.**  
-   Define the dispersion payoff \(\Phi_{\text{disp}}\) on each grid node
-   using the continuous-time or discrete-time formula. Then solve:
+5. Estimating the $`21 \times 21`$ historical correlation matrix $`\widehat{\Sigma}_t`$ from the returns in `processed/returns.parquet`, using a 60‑day rolling window ending just before date $`t`$.
 
-   \[
-   \begin{aligned}
-   U(x_t) &=
-   \max_{\pi \in \mathbb{R}^{N_{\text{grid}}}}
-   \sum_{n=1}^{N_{\text{grid}}} \pi_n \,
-   \Phi_{\text{disp}}(S_{T,n}^0,\dots,S_{T,n}^{20}), \\
-   L(x_t) &=
-   \min_{\pi \in \mathbb{R}^{N_{\text{grid}}}}
-   \sum_{n=1}^{N_{\text{grid}}} \pi_n \,
-   \Phi_{\text{disp}}(S_{T,n}^0,\dots,S_{T,n}^{20}),
-   \end{aligned}
-   \]
+The correlation estimator enforces positive definiteness by regularising very small eigenvalues if necessary. If there are insufficient historical returns before $`t`$, the code falls back to a conservative default (for example the identity matrix) to avoid numerical failure.
 
-   subject to the marginal and martingale constraints, and
-   \(\pi_n \ge 0, \sum_n \pi_n = 1\).
+### 4.2.2 Risk‑neutral GBM dynamics
 
-5. **Define the fair value.**  
-   For training the NN, a scalar label can be used:
+Under the risk‑neutral measure used for Monte Carlo, each asset $`S^i`$ follows a GBM:
 
-   \[
-   P_{\text{fair}}(x_t) := \frac{L(x_t) + U(x_t)}{2}.
-   \]
+$`\frac{\mathrm{d}S_t^i}{S_t^i} = (r_i - q_i)\,\mathrm{d}t + \sigma_i\,\mathrm{d}W_t^i,`$
 
-**Pros:** Theoretically clean, truly model-free bounds.  
-**Cons:** Computationally heavy in high dimension; may be limited to a
-subset of dates or to a reduced number of constituents.
+where
 
-### 4.4.2 Approach B: model-based Monte Carlo pseudo-labels
+- $`r_i`$ is the three‑month rate for asset $`i`$ on date $`t`$,
+- $`q_i`$ is the dividend yield,
+- $`\sigma_i := \sigma_i^{\text{ATM}}(t)`$ is the ATM volatility extracted from the synthetic surface,
+- $`W^i`$ are Brownian motions with instantaneous correlations
 
-This approach uses a simpler multi-asset stochastic model to generate
-labels and is more tractable on a laptop.
+  $`\mathrm{corr}(\mathrm{d}W_t^i,\mathrm{d}W_t^j) = \widehat{\Sigma}_t^{ij}.`$
 
-1. **Specify a multi-asset model.**  
-   - Each asset \(S^i\) follows a geometric Brownian motion under the
-     risk-neutral measure:
-     \[
-     \frac{dS_t^i}{S_t^i} = (r - q^i) \, dt + \sigma_i \, dW_t^i,
-     \]
-     where \(\sigma_i\) is taken from the synthetic ATM IV \(a_i(t)\).
-   - Brownian motions \(W^i\) are correlated with correlation matrix
-     \(\Sigma\) estimated from historical Yahoo return data.
+In discrete time, over a grid of $`N_{\text{steps}}`$ daily time steps of size $`\Delta t`$ (with $`N_{\text{steps}} = 63`$ and $`\Delta t = 1/252`$), the log‑Euler scheme is used:
 
-2. **Simulate paths.**  
-   - For each date \(t\), simulate \(N_{\text{sim}}\) paths of the
-     21-dimensional process over \([t, T]\), using time discretisation
-     aligned with the realised variance computation.
+$`\log S_{t_{k+1}}^i
+  = \log S_{t_k}^i
+    + \Big((r_i - q_i) - \tfrac{1}{2}\sigma_i^2\Big)\Delta t
+    + \sigma_i \sqrt{\Delta t}\,Z_k^i,`$
 
-3. **Compute dispersion payoff.**  
-   - For each simulated path \(j\), compute the discrete-time realised
-     variance for index and constituents and evaluate the dispersion payoff
-     \(\widehat{\Phi}_{\text{disp}}^{(j)}\).
+where the Gaussian vector $`Z_k = (Z_k^0,\dots,Z_k^{20})`$ at each step satisfies
 
-4. **Estimate fair value.**  
-   - Define the pseudo-label:
-     \[
-     P_{\text{fair}}(x_t) \approx
-     \frac{1}{N_{\text{sim}}} \sum_{j=1}^{N_{\text{sim}}}
-     \widehat{\Phi}_{\text{disp}}^{(j)}.
-     \]
+$`\mathbb{E}[Z_k] = 0, \qquad
+  \mathrm{Cov}(Z_k) = \widehat{\Sigma}_t.`$
 
-**Pros:** Much cheaper computationally; feasible for many dates and
-constituents.  
-**Cons:** Not strictly model-free; labels depend on the GBM and
-correlation assumptions.
+In code, `MonteCarloSimulator`:
 
-### 4.4.3 Chosen approach for initial implementation
+- draws $`N_{\text{paths}} = 5000`$ independent paths for the 21‑dimensional process,
+- uses a Cholesky decomposition of $`\widehat{\Sigma}_t`$ to generate correlated shocks,
+- constructs arrays of shape
+  - `index_paths`: $`(N_{\text{paths}}, N_{\text{steps}}+1)`$ for the index,
+  - `stock_paths`: $`(20, N_{\text{paths}}, N_{\text{steps}}+1)`$ for the constituents.
 
-For the first implementation, the project will use **Approach B
-(model-based Monte Carlo)** to generate labels \(P_{\text{fair}}(x_t)\)
-for all training dates. This enables end-to-end experimentation on a
-MacBook Air.
-
-If time and computational resources permit, **Approach A (MOT/LP)** will
-be applied on a smaller subset of dates and/or a reduced number of
-constituents to:
-
-- Validate the Monte Carlo labels.
-- Demonstrate that the NN approximates true model-free bounds in those
-  cases.
+These arrays are then passed to the dispersion payoff calculator.
 
 ---
 
-## 4.5 Dataset composition and splits
+## 4.3 Dispersion payoff on simulated paths
 
-### 4.5.1 Date range and sampling
+The dispersion payoff is implemented in `src/labels/dispersion_payoff.py` and matches the discrete definition given in document 01.
 
-Using Yahoo Finance data, select a historical window such as:
+### 4.3.1 Realised variance
 
-- Start date: 2015‑01‑01  
-- End date: 2024‑12‑31
+For any array of simulated prices `paths` of shape $`(N_{\text{paths}}, N_{\text{steps}}+1)`$, the realised variance per path is defined as:
 
-For each business day \(t\) in this range where all 21 assets have valid
-prices and the synthetic IV model can be constructed, generate one
-feature-label pair \((x_t, y_t)\).
+$`\widehat{\mathrm{RV}}^{(\ell)}
+  = 252 \sum_{k=1}^{N_{\text{steps}}}
+        \left(
+          \log\frac{S_{t_k}^{(\ell)}}{S_{t_{k-1}}^{(\ell)}}
+        \right)^2, \quad \ell = 1,\dots,N_{\text{paths}}.`$
 
-### 4.5.2 Train / validation / test splits
+This is implemented as:
 
-To avoid look-ahead bias, use **time-based splits**:
+- `log_returns = np.diff(np.log(paths), axis=1)`,
+- `realized_var = np.sum(log_returns**2, axis=1) * 252`.
 
-- **Training set:** 2015‑01‑01 to 2023‑12‑31  
-- **Validation set:** 2024‑01‑01 to 2024‑09‑30  
-- **Test set:** 2024‑10‑01 to 2024‑12‑31
+The factor 252 annualises daily returns to variance per year.
 
-Exact dates can be adjusted depending on data availability.
+### 4.3.2 Dispersion payoff and expected value
 
-### 4.5.3 Quality filters
+Using the realised variance operator above, the dispersion payoff calculator performs:
 
-Before accepting a date \(t\) into the dataset:
+1. Compute index realised variance on each path:
 
-1. Check that all 21 assets have valid prices and no extreme outliers.
-2. Ensure realised volatility estimates used in the synthetic IV model are
-   within reasonable bounds (e.g., between 5% and 100% annualised).
-3. Verify that synthetic option prices do not exhibit obvious arbitrage
-   (e.g., negative prices, violations of basic monotonicity or
-   convexity), within numerical tolerance.
+   $`\widehat{\mathrm{RV}}_T^{0,(\ell)}
+     = \text{realised_variance}(\text{index_paths})_\ell.`$
 
-Dates failing these checks can be excluded or down-weighted.
+2. For each of the 20 constituents, compute realised variance on each path:
+
+   $`\widehat{\mathrm{RV}}_T^{i,(\ell)}
+     = \text{realised_variance}(\text{stock\_paths}[i])_\ell,
+     \quad i = 1,\dots,20.`$
+
+3. Combine with basket weights $`w_i`$ (equal weights $`1/20`$ by default):
+
+   $`\widehat{\mathrm{RV}}_{\text{basket}}^{(\ell)}
+     = \sum_{i=1}^{20} w_i\,\widehat{\mathrm{RV}}_T^{i,(\ell)}.`$
+
+4. Define the dispersion payoff per path as index variance minus weighted stock variances:
+
+   $`\widehat{\Phi}_{\text{disp}}^{(\ell)}
+     = \widehat{\mathrm{RV}}_T^{0,(\ell)}
+       - \widehat{\mathrm{RV}}_{\text{basket}}^{(\ell)}.`$
+
+This is exactly what `dispersion_payoff(index_paths, stock_paths)` returns.
+
+The expected dispersion payoff (Monte Carlo fair value) is then
+
+$`P_{\text{MC}}(x_t)
+  = \mathbb{E}[\widehat{\Phi}_{\text{disp}}]
+  \approx \frac{1}{N_{\text{paths}}}
+           \sum_{\ell=1}^{N_{\text{paths}}}
+             \widehat{\Phi}_{\text{disp}}^{(\ell)}.`$
+
+In code, `expected_payoff(index_paths, stock_paths)`:
+
+- calls `dispersion_payoff` to obtain the vector of payoffs,
+- returns the simple average across paths.
+
+This scalar $`P_{\text{MC}}(x_t)`$ is the label $`y_t`$ for date $`t`$.
 
 ---
 
-## 4.6 Storage format and metadata
+## 4.4 Label generation pipeline
 
-### 4.6.1 Feature and label files
+The script `src/labels/generate_labels.py` orchestrates label generation. At a high level:
 
-Store the final datasets in a binary, columnar format such as Parquet:
+1. Load scaled features:
+   - `X_train.npy`, `X_val.npy`, `X_test.npy` from `output/datasets/features`,
+   - `dates_train.npy`, `dates_val.npy`, `dates_test.npy` for alignment.
 
-- `data/labels/training_set.parquet`
-- `data/labels/validation_set.parquet`
-- `data/labels/test_set.parquet`
+2. Load the feature scaler:
+   - `scaler.pkl` from `output/datasets/features`.
 
-Each file contains:
+3. Load the processed returns:
+   - `processed/returns.parquet` from `output/datasets/processed`,
+   - used for correlation estimation.
 
-- `date`
-- Feature columns: `x_1, x_2, ..., x_{n_in}`
-- Label column(s): `y_fair` (and optionally `y_lower`, `y_upper` if MOT
-  bounds are used)
+4. For each split (train, validation, test):
+   - Iterate over rows $`x_t`$ and corresponding dates.
+   - Un‑scale $`x_t`$ back to the raw feature space using the scaler.
+   - Parse raw features to reconstruct spots, rates, yields and implied volatilities.
+   - Estimate the 21×21 correlation matrix $`\widehat{\Sigma}_t`$ using a 60‑day window of historical returns ending before $`t`$.
+   - Instantiate `MonteCarloSimulator` with:
+     - number of paths $`N_{\text{paths}} = 5000`$,
+     - horizon $`N_{\text{steps}} = 63`$ trading days,
+     - the extracted drifts $`(r_i - q_i)`$,
+     - volatilities $`\sigma_i^{\text{ATM}}(t)`$,
+     - correlation matrix $`\widehat{\Sigma}_t`$.
+   - Simulate paths for index and constituents.
+   - Pass the simulated paths to `DispersionPayoffCalculator` to compute $`P_{\text{MC}}(x_t)`$.
+   - Store the resulting scalar in the appropriate label array.
 
-### 4.6.2 Normalisation parameters and configuration
+5. Save labels:
+   - `y_train.npy`, `y_val.npy`, `y_test.npy` under `output/datasets/labels`.
 
-Store normalisation statistics and label-generation settings in a config
-file, e.g. `config/data_config.yml`:
+The labels are one‑dimensional arrays with the same number of entries as the corresponding feature matrices:
 
-```yaml
-train_dates:
-  start: "2015-01-01"
-  end: "2023-12-31"
-val_dates:
-  start: "2024-01-01"
-  end: "2024-09-30"
-test_dates:
-  start: "2024-10-01"
-  end: "2024-12-31"
+- training labels: shape $`(1448,)`$,
+- validation labels: shape $`(180,)`$,
+- test labels: shape $`(298,)`$.
 
-label_generation_method: "model_based"  # or "mot"
-n_simulations: 10000
+The progress report documents the empirical distribution of these labels and confirms there are no NaNs or infinite values.
 
-feature_normalization:
-  mean_file: "data/labels/feature_means.npy"
-  std_file: "data/labels/feature_stds.npy"
+---
+
+## 4.5 Dataset composition and statistics
+
+After running the label generator on the full feature set:
+
+- Total feature–label pairs: 1926 dates (2018–2025 inclusive),
+- Train period: 2018–2023
+  - feature matrix `X_train.npy`: shape $`(1448, 274)`$,
+  - label vector `y_train.npy`: shape $`(1448,)`$.
+- Validation period: 2024 Q1–Q3
+  - `X_val.npy`: shape $`(180, 274)`$,
+  - `y_val.npy`: shape $`(180,)`$.
+- Test period: 2024 Q4–2025
+  - `X_test.npy`: shape $`(298, 274)`$,
+  - `y_test.npy`: shape $`(298,)`$.
+
+Typical label values (across all sets) are in a moderate range, for example:
+
+- mean around $`-65`$ variance points,
+- standard deviation around $`30`$,
+- minimum around $`-150`$,
+- maximum around $`20`$.
+
+These ranges reflect realistic levels for annualised dispersion differences under the chosen simulation parameters and correlation estimates.
+
+A noticeable train‑test shift exists (test labels somewhat more negative on average), which the progress report attributes to a genuine regime change towards higher correlations and lower dispersion in the most recent period. This is a property of the underlying data and simulation inputs, not a data bug.
+
+---
+
+## 4.6 Data quality checks for labels
+
+During label generation, several checks are performed:
+
+- Correlation matrices:
+  - ensure sufficient historical data before $`t`$; otherwise skip or use a safe fallback,
+  - ensure positive definiteness (after regularisation) to avoid Cholesky failures.
+
+- Simulation outputs:
+  - confirm no simulated prices are negative or NaN,
+  - confirm realised variances are finite and non‑negative.
+
+- Labels:
+  - check that each $`P_{\text{MC}}(x_t)`$ is finite and falls inside a sensible range (for example between $`-200`$ and $`+200`$),
+  - ensure no NaNs or infinities before saving to disk.
+
+Summary statistics (mean, standard deviation, skewness, kurtosis) are logged for train, validation and test labels separately to confirm that the distributions are well behaved and that there is sufficient variation for learning.
+
+---
+
+## 4.7 Relationship to the model‑free framework
+
+Conceptually, the ideal label for each market state $`x_t`$ would be the model‑free fair value
+
+$`P_{\text{fair}}(x_t) = \frac{L(x_t) + U(x_t)}{2},`$
+
+where $`L`$ and $`U`$ are the lower and upper no‑arbitrage bounds under the set of martingale measures consistent with vanilla prices, as described in document 02.
+
+In practice, the current implementation uses
+
+$`y_t := P_{\text{MC}}(x_t)`$
+
+as a proxy for $`P_{\text{fair}}(x_t)`$. This quantity:
+
+- is model‑based (correlated GBM with parameters from synthetic IVs and historical correlations),
+- is much cheaper to compute than a full martingale optimal transport or linear programming bound in 21 dimensions,
+- still respects key financial structure (martingale property, realistic volatility levels, realistic correlation matrix).
+
+The neural network trained in Phase 2 therefore learns to approximate the Monte Carlo fair value map
+
+$`x_t \mapsto P_{\text{MC}}(x_t),`$
+
+which is used directly to generate trading signals in the backtest. Small‑scale experiments with true model‑free bounds (for fewer assets or fewer dates) are reserved as an optional extension to validate and calibrate the Monte Carlo surrogate.
+
+---
+
+## 4.8 Summary
+
+This document specifies how the supervised training data are constructed:
+
+- inputs $`x_t`$: 274‑dimensional scaled feature vectors from document 03,
+- labels $`y_t`$: Monte Carlo expectations of the three‑month dispersion payoff, computed under a correlated GBM calibrated to synthetic ATM implied volatilities and 60‑day rolling historical correlations,
+- splits: time‑based train, validation and test sets with 1448, 180 and 298 samples respectively,
+- storage: NumPy arrays `X_*.npy` and `y_*.npy` plus date arrays and a shared scaler.
+
+Together with documents 01–03, this defines a complete, reproducible pipeline from raw Yahoo Finance data and synthetic implied volatility surfaces to the feature–label pairs used for neural network training.

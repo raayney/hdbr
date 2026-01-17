@@ -280,7 +280,7 @@ The **baseline scope** of this document is:
 - SX5E index + 20 largest constituents by weight (21 underlyings total).
 - Single payoff $\Phi_{\text{disp}}$ as defined in Section 1.3, with the convention
 
-  $$`\Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i.`$$
+  $`\Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i.`$
   
 - Neural network outputs a single scalar fair value approximating Monte Carlo pseudo‑labels.
 
@@ -293,5 +293,5 @@ Natural **extensions**, consistent with the Neufeld–Sester framework for param
 For Phase 1–2, however, this document fixes $\Phi_{\text{disp}}$ and the 3‑month horizon, and serves as the mathematical foundation for:
 
 - The label generation pipeline (Monte Carlo under historically calibrated correlations).
-- The network training task (learning $x \mapsto P_{\text{MC}}(x)$).
+- The network training task (learning $`x \mapsto P_{\text{MC}}(x)`$).
 - The backtest engine (mapping predicted mispricing into realised dispersion P\&L).

@@ -1,285 +1,309 @@
-# 3. Data Specification
+# 3. Data specification
 
 ## 3.1 Overview
 
-This section specifies the **exact data sources, fields, formats, and feature engineering** required to train and backtest the dispersion trading system. It serves as the blueprint for the data pipeline in Phase 2.
+This document specifies the data universe, fields, preprocessing and feature engineering used in the project. It is written to match the actual implementation:
+
+- underlyings from Yahoo Finance only,
+- synthetic three‑month implied volatility surfaces,
+- Monte Carlo labels,
+- neural network inputs of dimension 274.
+
+It serves as the blueprint for the data pipeline in `output/datasets` and the scripts in `src/data`, `src/pricing` and `src/features`.
+
+---
 
 ## 3.2 Data universe and time horizon
 
 ### 3.2.1 Market and instruments
 
-**Primary index:** EuroStoxx 50 (SX5E)
-- Underlying: SX5E index level.
-- Options: European vanilla calls and puts on SX5E.
-- Maturities of interest: 3 months (primary focus), with secondary maturities (1M, 6M) for term-structure features.
+Index
 
-**Constituents:** Top 20 stocks by current index weight in SX5E
-- Underlyings: Individual stock prices (ISIN or Bloomberg ticker).
-- Options: European vanilla calls and puts on each stock.
-- Same maturities as index.
+- EURO STOXX 50 index, ticker `^STOXX50E` (or a liquid ETF proxy with similar behaviour).
+- Synthetic European vanilla options on the index, three‑month maturity.
 
-### 3.2.2 Historical time period
+Constituents
 
-**Backtest window:** 2018-01-01 to 2025-12-31 (approximately 8 years of history)
-- Rationale: Captures diverse market regimes (post-crisis recovery, low-vol period, COVID crash, rate hikes, geopolitical events).
-- Sufficient history for robust statistical validation.
+- Top 20 constituents of the EURO STOXX 50 by weight, as listed in `src/config.py` (`TOP_20_CONSTITUENTS`).
+- For each constituent, Yahoo Finance spot prices and synthetic three‑month options, consistent with the index set‑up.
 
-**Data frequency:** Daily
-- Sampling: End-of-day (close) prices.
-- Alternative intraday data may be considered later but not required for Phase 1.
+### 3.2.2 Historical period and frequency
 
-## 3.3 Data fields and raw formats
+Backtest and training window
 
-### 3.3.1 Index data (SX5E)
+- Start date: `2018-01-01`
+- End date: `2025-12-31`
 
-For each trading day, record:
+This spans multiple regimes (low volatility, COVID crash, inflation and rate‑hike periods) and provides sufficient data to train and evaluate the model.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `date` | YYYYMMDD | Trading date |
-| `sx5e_spot` | float | SX5E index level at close |
-| `sx5e_forward_3m` | float | 3-month forward level (or computed from spot + rates) |
-| `sx5e_dividend_yield_3m` | float | Annualized dividend yield for 3M horizon |
-| `sx5e_rate_3m` | float | 3-month risk-free rate (e.g. EURIBOR 3M) |
+Frequency
 
-**Options on SX5E (3-month maturity):**
+- Daily end‑of‑day observations (adjusted close from Yahoo Finance).
+- No intraday data are used in the current implementation.
 
-For each day and maturity, record vanilla option prices or implied vols on a strike grid:
+---
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `date` | YYYYMMDD | Trading date |
-| `maturity` | float | Years to maturity (e.g., 0.25 for 3M) |
-| `strike_log_moneyness` | float | \(\log(K / F)\) where \(K\) = strike, \(F\) = forward |
-| `call_bid`, `call_mid`, `call_ask` | float | Call option prices (bid/mid/ask) |
-| `put_bid`, `put_mid`, `put_ask` | float | Put option prices (bid/mid/ask) |
-| `call_iv`, `put_iv` | float | Implied volatilities (Black–Scholes convention) |
+## 3.3 Underlying price data (real)
 
-**Strike grid:** moneyness levels
-\[
-\log(K/F) \in \{-0.30, -0.20, -0.10, 0.00, 0.10, 0.20, 0.30\}.
-\]
-This gives 7 strikes per day, balancing granularity vs data availability.
+Daily prices for the index and the 20 constituents are downloaded from Yahoo Finance, for example using `yfinance`. For each asset and date the following fields are retrieved:
 
-### 3.3.2 Constituent data (each of 20 stocks)
+- open
+- high
+- low
+- close
+- adjusted close
+- volume
 
-Repeat the structure above for each constituent. For constituent \(i\), record:
+The adjusted close series is used for all return and realised variance calculations, as it incorporates splits and dividends.
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `date` | YYYYMMDD | Trading date |
-| `stock_i_spot` | float | Stock price at close |
-| `stock_i_forward_3m` | float | 3-month forward |
-| `stock_i_dividend_yield_3m` | float | Dividend yield |
-| `stock_i_call_mid`, `stock_i_call_iv` | float | Call prices / IVs on 7-strike grid |
-| `stock_i_put_mid`, `stock_i_put_iv` | float | Put prices / IVs on 7-strike grid |
+After download and basic cleaning, these are stored in Parquet files under:
 
-**Index weights:**
+- `output/datasets/processed/`  
+  for example
+  - `processed_prices.parquet` (wide table: dates × tickers)
+  - `returns.parquet` (daily log returns)
+  - `rolling_vol.parquet` (for realised volatility estimates)
 
-For each day, record the weight of each constituent in the SX5E:
+Daily log returns for asset $`i`$ on day $`t_k`$ are computed as
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `date` | YYYYMMDD | Trading date |
-| `weight_i` | float | Weight of constituent \(i\), \(\sum_i w_i = 1\) |
+$`\log\frac{S^i_{t_k}}{S^i_{t_{k-1}}}.`$
 
-These weights are used to construct the weighted dispersion payoff and the basket for comparison.
+These returns are used to:
 
-## 3.4 Data sources and access
+- estimate short‑window realised volatility for ATM implied volatilities,
+- estimate rolling correlation matrices for the Monte Carlo simulation,
+- compute realised dispersion in the backtest.
 
-### 3.4.1 Underlying price data (real)
+---
 
-Historical prices for the SX5E index (or a liquid ETF proxy) and the 20
-constituent stocks are obtained from Yahoo Finance using its public API
-(e.g. via the `yfinance` Python package).
+## 3.4 Synthetic implied volatility surfaces and option prices
 
-For each asset and date we retrieve:
+There is no free historical options database for the EURO STOXX 50 and its constituents, so the project uses synthetic but deliberately structured implied volatility surfaces.
 
-- Open, high, low, close, adjusted close
-- Volume
+### 3.4.1 Moneyness grid
 
-Adjusted close prices are used to compute log-returns and realised variance,
-as they account for splits and dividends.
+The project fixes a symmetric grid of log‑moneyness levels, defined in `src/config.py` as
 
-### 3.4.2 Option surface data (synthetic)
+$`\text{MONEYNESS\_GRID} = [-0.20,\,-0.10,\,-0.05,\,0.00,\,0.05,\,0.10,\,0.20].`$
 
-Historical 3-month option surfaces for SX5E and the 20 constituents are not
-directly available from free sources. Instead, this project generates
-synthetic but realistic implied volatility surfaces as follows:
+For each asset $`i`$ and date $`t`$, synthetic implied volatilities are generated at the seven log‑moneyness points
 
-1. For each date and asset, estimate a short-term realised volatility from
-Yahoo Finance returns (e.g., 30–60 day window).
-2. Use a parametric smile model (e.g., quadratic in log-moneyness or SVI-like)
-to construct a 3-month implied volatility curve across strikes \(\log(K/F) \in \{-0.3, -0.2, \ldots, 0.3\}\).
-3. Convert implied volatilities into option prices using the Black–Scholes
-formula, given the current spot, forward, and discount factor.
+$`k \in \{-0.20,\,-0.10,\,-0.05,\,0.00,\,0.05,\,0.10,\,0.20\}.`$
 
-These synthetic option prices are treated as if they were observed market
-vanilla prices when defining \(\mathcal{M}_{\text{vanilla}}\) and running the
-MOT/LP solver. The synthetic IV model will be calibrated to reproduce
-typical EuroStoxx 50 volatility levels and skew documented in the literature
-and from current market snapshots.
+### 3.4.2 ATM volatility from realised volatility
 
-### 3.4.3 Institutional data (future extension)
+For each asset and date, an annualised short‑window realised volatility is computed from the adjusted close series, for example over a 30‑day window:
 
-The data pipeline and model are designed so that, if institutional options
-data (e.g., OptionMetrics, Bloomberg, or iVolatility) becomes available in
-the future, the synthetic surface generator can be replaced with real
-historical option quotes without changing the overall architecture.
+$`\widehat{\sigma}_{\text{real},i}^{(t)} = \sqrt{252 \cdot \frac{1}{W} \sum_{k=1}^{W} r_{t-k,i}^2},`$
 
-## 3.5 Data preprocessing and feature engineering
+where $`r_{t-k,i}`$ are daily log returns and $`W`$ is the window size. This realised volatility is scaled to obtain an ATM implied volatility
 
-### 3.5.1 Handling missing or illiquid data
+$`\sigma_{\text{ATM},i}^{(t)} \approx c \cdot \widehat{\sigma}_{\text{real},i}^{(t)},`$
 
-**Missing strikes / maturities:**
-- If a strike is not traded on a given day, use last-observation-carried-forward (LOCF) or interpolation.
-- Alternatively, drop that day from training if coverage is too sparse.
+with a constant factor $`c`$ chosen to represent typical equity option levels (for example $`c \approx 1.2`$).
 
-**Bid–ask spreads:**
-- Work with mid prices: \((P_{\text{bid}} + P_{\text{ask}}) / 2\).
-- Flag observations with bid–ask spread > some threshold (e.g., 5% of mid) as potentially illiquid; consider downweighting in training loss.
+### 3.4.3 Quadratic smile model (implemented)
 
-**Corporate actions:**
-- Adjust for stock splits, dividends, and mergers.
-- Maintain continuity of forward prices and implied vol surfaces.
+The script `src/pricing/synthetic_surfaces.py` defines `SyntheticIVSurfaceGenerator`, which uses a quadratic smile model over log‑moneyness:
 
-### 3.5.2 Implied volatility surface construction
+$`\sigma_i^{(t)}(k) = \sigma_{\text{ATM},i}^{(t)} + \alpha k + \beta k^2,`$
 
-For each asset on each day:
+with configuration parameters in `src/config.py`:
 
-1. **Raw ** Bid/ask option prices on the 7-strike grid, maturity \(T=0.25\) years.
-2. **Mid prices:** Compute mid of bid/ask.
-3. **Implied vols:** Use Black–Scholes inversion to convert prices to IVs.
-   - For puts: \(P_{\text{put}} = C_{\text{call}} - F + K \cdot \beta(T)\) (put-call parity).
-   - Invert Black–Scholes formula: \(C_{\text{BS}}(S, K, T, r, \sigma) = P_{\text{call}}\) to solve for \(\sigma\).
-4. **Smoothing (optional):** If raw IVs are noisy, fit a smooth spline or SABR parametrization.
+- $`\alpha = \text{SKEW\_PARAM\_ALPHA} = -0.15`$
+- $`\beta = \text{SMILE\_PARAM\_BETA} = 0.05`$
 
-**Output:** For each asset and day, an implied vol **curve** across the 7 strikes.
+Implied volatilities are clipped to a reasonable range, for example between 0.1 per cent and 200 per cent, to avoid degenerate values.
 
-### 3.5.3 Feature normalization
+### 3.4.4 Option prices via Black–Scholes
 
-All features will be **standardized** before input to the neural network:
+Given
 
-\[
-x_{\text{normalized}} = \frac{x - \mu}{\sigma + \varepsilon},
-\]
+- spot price $`S_0^i`$,
+- forward price $`F_0^i`$,
+- three‑month maturity $`T = 0.25`$,
+- risk‑free rate $`r_i`$,
+- dividend yield $`q_i`$,
+- implied volatility $`\sigma_i^{(t)}(k)`$,
 
-where \(\mu, \sigma\) are the mean and standard deviation computed on the training set, and \(\varepsilon > 0\) is a small constant to avoid division by zero.
+call and put prices on strike $`K = F_0^i e^k`$ are computed under the Black–Scholes formula. These synthetic option prices are stored as part of the option surface outputs, for example in:
 
-Normalization is crucial for:
-- Stable neural network training (faster convergence, avoiding gradient explosion/vanishing).
-- Fair weighting of features with different scales (e.g., spot price in EUR vs. implied vol in %).
+- `output/datasets/synthetic_iv.parquet`
+- `output/datasets/synthetic_options.parquet`
 
-## 3.6 Feature vector construction
+In the theoretical model‑free view, these synthetic prices are treated as if they were observed market vanillas when defining $`\mathcal{M}_{\text{vanilla}}(x)`$.
 
-### 3.6.1 Flattened feature vector (baseline approach)
+---
 
-The network input \(x \in \mathbb{R}^{n_{\text{in}}}\) is constructed by flattening market data into a single vector.
+## 3.5 Derived time series for labels and backtesting
 
-**Spot and forward prices:**
-- Index spot and forward: 2 values.
-- 20 constituent spots and forwards: 40 values.
-- Total: 42 values.
+The project computes several derived time series from the processed prices:
 
-**Risk-free rates and yields:**
-- 3M EURIBOR (single value for all assets): 1 value.
-- SX5E dividend yield: 1 value.
-- 20 constituent dividend yields: 20 values.
-- Total: 22 values.
+1. Daily log returns for all 21 assets (index + 20 stocks), stored in `returns.parquet`.
+2. Rolling realised volatility, used to derive ATM implied volatilities.
+3. Rolling correlation matrices for the 21‑dimensional return vector, estimated over a 60‑day window.
 
-**Implied volatilities (strikes × assets):**
-- 7 moneyness levels × (1 index + 20 constituents) = 7 × 21 = 147 values.
+A correlation matrix $`\widehat{\Sigma}_t`$ is estimated at each date $`t`$ with a lookback of 60 trading days, and adjusted to be positive definite (by lifting small eigenvalues if necessary). This matrix is used as the correlation input to the Monte Carlo simulator, but is not included as part of the neural network feature vector.
 
-**Additional features (term structure and skew):**
-- Variance term structure (IV at 1M and 6M relative to 3M): 2 × 21 = 42 values.
-- Skew measures (25-delta IV-RR): 1 × 21 = 21 values.
-- Total: 63 values.
+In the backtest, realised dispersion for a three‑month window is computed by applying the same realised variance formula used inside the Monte Carlo label generator, applied now to actual Yahoo returns over each 63‑day horizon.
 
-**Grand total:** \(n_{\text{in}} = 42 + 22 + 147 + 63 = 274\).
+---
 
-### 3.6.2 Structured input (future extension)
+## 3.6 Feature engineering and feature vector
 
-Alternatively, preserve the structure:
+### 3.6.1 Feature builder
 
-- Input tensor shape: \([21 \text{ assets} \times 7 \text{ strikes} \times N_{\text{features}}]\).
-- Feed into convolutional layers or attention mechanisms.
-- Advantage: network can exploit spatial structure (smoothness across strikes, similarity across assets).
+The class `FeatureBuilder` in `src/features/build_features.py` constructs a fixed‑length feature vector for each date from dictionaries of prices, implied volatilities, rates and yields.
 
-For Phase 1, we use the **flattened approach** (Section 3.6.1) for simplicity. Structured inputs can be explored in Phase 2 if needed.
+Given
 
-## 3.7 Dataset statistics and summary
+- `tickers`: the ordered list of 21 tickers (index first, then 20 constituents),
+- `moneyness_grid`: the seven log‑moneyness levels,
+- `feature_dim = 274`,
 
-### 3.7.1 Training / validation / test splits
+the method `build_feature_vector` proceeds as follows for each date.
 
-- **Training set:** 2018-01-01 to 2023-12-31 (roughly 1500 trading days)
-  - Used to learn network parameters.
-- **Validation set:** 2024-01-01 to 2024-09-30 (roughly 180 trading days)
-  - Used for hyperparameter tuning and early stopping.
-- **Test set:** 2024-10-01 to 2025-12-31 (roughly 60 trading days)
-  - Held-out for final model evaluation; no parameter updates.
+Spots and forwards
 
-Rationale: Time-ordered splits to avoid lookahead bias and test on recent unseen data.
+For each ticker:
 
-### 3.7.2 Expected feature statistics
+- read the spot price $`S_0^i`$,
+- read rate $`r_i`$ and dividend yield $`q_i`$,
+- compute the three‑month forward
 
-**Spot prices (normalized by forward):**
-- Mean moneyness \(\log(S/F) \approx 0\) (by definition).
-- Std dev: ~1–3% depending on near-term volatility and dividends.
+$`F_0^i = S_0^i \exp\big((r_i - q_i)\,T\big), \quad T = 0.25,`$
 
-**Implied volatilities (3M, at-the-money):**
-- Mean: 15–25% annualized (typical for equity index and stocks).
-- Std dev: 5–15% (varies with market regime).
-- Range: 5% (low vol) to 60%+ (crisis periods).
+and append both spot and forward.
 
-**Term structure (IV_1M / IV_3M):**
-- Mean ratio: ~1.0–1.2 (term structure typically upward-sloping).
-- Std dev: ~0.2.
+This yields $`21 \times 2 = 42`$ features.
 
-## 3.8 Label generation (ground truth for training)
+Rates and dividend yields
 
-Labels \(y_i = (L_i, U_i)\) or \(y_i = P_{\text{fair},i}\) are computed offline via solving the MOT / LP problem (detailed in Step 5). This section defines the placeholder:
+For each ticker:
 
-**For each training sample (date and market state \(x_i\)):**
+- append the three‑month rate $`r_i`$,
+- append the dividend yield $`q_i`$.
 
-1. Use the observed vanilla option prices on that date.
-2. Solve the martingale optimal transport problem (Section 2.3.1) to compute:
-   - \(L(x_i)\): lower bound on dispersion payoff.
-   - \(U(x_i)\): upper bound.
-3. Compute fair value: \(P_{\text{fair}}(x_i) = \frac{L(x_i) + U(x_i)}{2}\).
-4. Store as label \(y_i\).
+This yields another $`21 \times 2 = 42`$ features.
 
-**Computational note:** Solving the MOT problem for a single date can take minutes to hours depending on grid resolution. For 1500 training dates, expect significant offline compute. This is covered in detail in Step 5.
+Implied volatilities
 
-## 3.9 Data quality checks and validation
+For each ticker:
 
-Before using data in training, perform:
+- obtain the implied volatility curve on the seven log‑moneyness points,
+- for each moneyness $`k`$ in the fixed grid, append $`\sigma_i^{(t)}(k)`$.
 
-1. **Completeness:** Check that all required fields are present for each date and asset.
-2. **Arbitrage checks:** Verify put-call parity (within bid-ask spread).
-3. **Outlier detection:** Flag extreme option prices or IVs that may indicate data errors.
-4. **Continuity:** Check for gaps or jumps in time series inconsistent with market events.
-5. **Dividend adjustments:** Ensure forward prices correctly account for corporate actions.
+This yields $`21 \times 7 = 147`$ features.
 
-Example thresholds:
-- IV > 100% or IV < 1%: investigate.
-- Bid > Ask: data error.
-- Spread > 10% of mid: potentially illiquid, flag for downweighting.
+Zero padding
+
+At this point there are $`42 + 42 + 147 = 231`$ economically meaningful features. The implementation then pads with zeros until length 274:
+
+- append zeros until the vector length reaches 274,
+- truncate to length 274 in case of any overshoot.
+
+Thus the remaining $`274 - 231 = 43`$ entries are pure padding and are not interpreted anywhere else in the code. No correlation‑based or term‑structure features are currently present; those are left as future extensions.
+
+### 3.6.2 Feature scaling
+
+The class `FeatureScaler` in `src/features/build_features.py` standardises the features:
+
+- compute per‑dimension mean and standard deviation on the training set:
+
+  $`\mu_j = \text{mean of feature } j,`$  
+  $`\sigma_j = \text{standard deviation of feature } j,`$
+
+- transform any feature matrix $`X`$ via
+
+  $`X_{\text{scaled},j} = \frac{X_j - \mu_j}{\sigma_j + \varepsilon},`$
+
+  with $`\varepsilon = \text{SCALER\_EPSILON} = 10^{-8}`$ to avoid division by zero.
+
+The scaler is fitted on the training period and then applied consistently to training, validation and test sets. The scaler object is saved as `scaler.pkl` in the features directory and later used to un‑scale features in the label generation script when reconstructing raw quantities such as spot and implied volatility.
+
+---
+
+## 3.7 Dataset files and directory structure
+
+The root data directory is defined in `src/config.py` as
+
+- `DATA_DIR = "output/datasets"`.
+
+Within this directory, the key subdirectories and files are:
+
+Processed underlying data
+
+- `output/datasets/processed/processed_prices.parquet`  
+  daily adjusted prices for all tickers,
+- `output/datasets/processed/returns.parquet`  
+  daily log returns,
+- `output/datasets/processed/rolling_vol.parquet`  
+  rolling realised volatilities (if saved).
+
+Synthetic options and implied volatilities
+
+- `output/datasets/synthetic_iv.parquet`  
+  implied volatilities for all 21 assets across the seven moneyness levels,
+- `output/datasets/synthetic_options.parquet`  
+  Black–Scholes option prices on the same grid.
+
+Features
+
+- `output/datasets/features/X_train.npy`
+- `output/datasets/features/X_val.npy`
+- `output/datasets/features/X_test.npy`
+- `output/datasets/features/dates_train.npy`
+- `output/datasets/features/dates_val.npy`
+- `output/datasets/features/dates_test.npy`
+- `output/datasets/features/scaler.pkl`
+
+Labels
+
+- `output/datasets/labels/y_train.npy`
+- `output/datasets/labels/y_val.npy`
+- `output/datasets/labels/y_test.npy`
+
+The feature and label arrays are aligned by index and date; the date arrays provide an explicit mapping back to calendar time and underlying raw data.
+
+---
+
+## 3.8 Train, validation and test splits
+
+The temporal splits are defined to avoid look‑ahead bias and to evaluate performance on recent unseen 
+
+- training period: from `BACKTEST_START = "2018-01-01"` up to and including `TRAIN_END = "2023-12-31"`,
+- validation period: from `VAL_START = "2024-01-01"` to `VAL_END = "2024-09-30"`,
+- test period: from `TEST_START = "2024-10-01"` to `TEST_END = "2025-12-31"`.
+
+These constants are set in `src/config.py` and are used consistently in the pipeline that constructs `X_train`, `X_val`, `X_test` and the corresponding date arrays.
+
+---
+
+## 3.9 Data quality checks
+
+Before features and labels are used for training and backtesting, the following checks are applied:
+
+- no missing values in the processed price series after cleaning,
+- log returns and realised volatilities within reasonable bounds,
+- correlation matrices positive definite (with minimal regularisation if needed),
+- labels finite and in a plausible range (for example not exploding due to extremely large simulated moves),
+- successful standardisation (no NaNs after scaling).
+
+The progress report files record aggregate statistics such as mean and standard deviation of labels across train, validation and test sets, and confirm that there are no NaNs or infinite values.
+
+---
 
 ## 3.10 Summary
 
-This section specified:
+This document describes the data used by the project in a way that matches the current implementation:
 
-- **Universe:** SX5E + 20 constituents, daily data, 2018–2025 (Section 3.2).
-- **Raw data fields:** Spots, forwards, rates, yields, option prices/IVs (Section 3.3).
-- **Data sources:** OptionMetrics, Bloomberg, Refinitiv (Section 3.4).
-- **Preprocessing:** Smoothing, normalization, corporate actions (Section 3.5).
-- **Feature engineering:** Flattened vector, 274 dimensions (Section 3.6).
-- **Dataset splits:** Train/val/test by time period (Section 3.7).
-- **Labels:** MOT-derived bounds (Section 3.8).
-- **Quality checks:** Arbitrage, outliers, continuity (Section 3.9).
+- market universe: EURO STOXX 50 index and 20 main constituents between 2018 and 2025,
+- underlying  daily adjusted closes and volumes from Yahoo Finance,
+- options: synthetic three‑month implied volatility surfaces on a fixed log‑moneyness grid, converted to Black–Scholes prices,
+- derived series: rolling realised volatility and correlation matrices from historical returns,
+- feature engineering: a 274‑dimensional vector per date, consisting of 231 meaningful features (spots, forwards, rates, yields, IVs) plus 43 zero padding entries,
+- scaling: per‑feature standardisation based on the training set,
+- storage: a clear layout under `output/datasets/processed`, `output/datasets/features` and `output/datasets/labels`,
+- splits: strictly time‑ordered train, validation and test periods.
 
-In **Phase 2**, the data pipeline will be implemented to:
-1. Load raw data from chosen source.
-2. Preprocess and engineer features.
-3. Generate labels via MOT solver.
-4. Prepare batches for neural network training.
+These specifications ensure that the data pipeline is reproducible and that anyone inspecting the repository can trace exactly how the neural network inputs and labels are constructed from raw Yahoo Finance data and synthetic implied volatility surfaces.

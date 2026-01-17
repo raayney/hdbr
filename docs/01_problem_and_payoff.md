@@ -202,7 +202,7 @@ Solving the full multi‑asset MOT / LP problem for dispersion on 21 underlyings
           \sum_{j=1}^{N_{\text{paths}}}
             \widehat{\Phi}^{(j)}_{\text{disp}}.$$
 
-This is the standard Monte Carlo estimator of $\mathbb E_{Q^{\text{MC}}_x}[\widehat{\Phi}_{\text{disp}}]$: it is unbiased and converges at rate $O(N_{\text{paths}}^{-1/2})$ by the law of large numbers and the central limit theorem, facts which come from basic probability theory rather than Neufeld–Sester.
+This is the standard Monte Carlo estimator of $`\mathbb E_{Q^{\text{MC}}_x}[\widehat{\Phi}_{\text{disp}}]`$: it is unbiased and converges at rate $O(N_{\text{paths}}^{-1/2})$ by the law of large numbers and the central limit theorem, facts which come from basic probability theory rather than Neufeld–Sester.
 
 The idea of first computing (possibly expensive) labels for a family of payoffs and then training a neural network to approximate the input–output map is exactly the supervised‑learning paradigm advocated by Neufeld–Sester (Algorithm 1), but here the label engine is a Monte Carlo simulator instead of an LP/MOT solver.
 

@@ -28,14 +28,12 @@ Consider a financial market on a filtered probability space $(\Omega,\mathcal F,
 
 The traded assets are:
 
-- **Index process**
-  $$S^0 = (S_t^0)_{t\ge 0},$$
+- **Index process**\\
+  $$S^0 = (S_t^0)_{t\ge 0},$$\\
   representing the EURO STOXX 50 index (or a liquid ETF proxy). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 - **Constituent processes**
-  $$
-  S^1,\dots,S^{20}, \quad S^i = (S_t^i)_{t\ge 0},
-  $$
+  $$S^1,\dots,S^{20}, \quad S^i = (S_t^i)_{t\ge 0},$$
   corresponding to the top 20 SX5E constituents by index weight. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Write $d = 20$ for the number of constituents. [SUPPOSED TO BE PRIOR KNOWLEDGE] Each $S^i$ is modeled as a (discounted) semimartingale under risk‑neutral measures; this is the same general setup used in Neufeld–Sester for multi‑asset derivatives, where the joint path

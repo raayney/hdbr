@@ -12,13 +12,13 @@ At a high level, the system:
 - In practice, uses Monte Carlo pseudo‑labels to approximate a fair value $P_{\text{MC}}(x)$ and trains a neural network surrogate $V_{\text{NN}}(x)$ to learn this mapping from high‑dimensional market state $x$ to price, following their supervised learning approach (Neufeld–Sester, Section II.B–II.C, Algorithm 1).
 - Compares $V_{\text{NN}}(x)$ to an implementation price derived from synthetic option surfaces to generate actionable trading signals.
 
-This document defines rigorously:
+This document defines rigorously the:
 
-1. The **market setup and notation**.
-2. The **continuous‑time dispersion payoff** and its discrete implementation for backtesting.
-3. The **conceptual model‑free pricing problem**, and how it connects to the Neufeld–Sester theory.
-4. The **practical surrogate** used in this project.
-5. The **trading signal** the rest of the system is built around.
+1. Market setup and notation.
+2. Continuous‑time dispersion payoff and its discrete implementation for backtesting.
+3. Conceptual model‑free pricing problem, and how it connects to the Neufeld–Sester theory.
+4. Practical surrogate used in this project.
+5. Trading signal the rest of the system is built around.
 
 ---
 
@@ -28,13 +28,13 @@ Consider a financial market on a filtered probability space $(\Omega,\mathcal F,
 
 The traded assets are:
 
-- **Index process**
+- Index process
   
   $$S^0 = (S_t^0)_{t\ge 0},$$
   
   in this case, representing the EURO STOXX 50 index.
 
-- **Constituent processes**
+- Constituent processes
   
   $$S^1,\dots,S^{20}, \quad S^i = (S_t^i)_{t\ge 0},$$
   
@@ -46,7 +46,7 @@ $$S = (S^0,\dots,S^d)$$
 
 is the underlying process for a payoff functional (Neufeld–Sester, Sections I, II.A).
 
-The **trading horizon per dispersion trade** is fixed to
+The trading horizon per dispersion trade is fixed to
 
 $$T = 3 \text{ months} \approx 0.25 \text{ years},$$
 
@@ -59,11 +59,11 @@ At time $t=0$, the observable state includes:
 - Risk‑free discount factors and dividend yields (encoded via forwards in the feature set).
 - Additional engineered quantities (realised volatilities, historical correlations, etc.), as defined in the data and feature specification.
 
-Let $w_1,\dots,w_d$ denote the **constituent weights** in SX5E, satisfying
+Let $w_1,\dots,w_d$ denote the constituent weights in SX5E, satisfying
 
 $$\sum_{i=1}^d w_i = 1, \quad w_i \ge 0.$$
 
-Define the corresponding **basket level**:
+Define the corresponding basket level:
 
 $$B_t := \sum_{i=1}^d w_i S_t^i.$$
 
@@ -75,7 +75,7 @@ The continuous‑time objects $S^i$ and their quadratic variations will be used 
 
 ### 1.3.1 Continuous‑time definition
 
-In continuous time, for each asset $S^i$ over $[0,T]$, define the **realised variance** as the quadratic variation of its log‑price:
+In continuous time, for each asset $S^i$ over $[0,T]$, define the realised variance as the quadratic variation of its log‑price:
 
 $$\mathrm{RV}_T^i := \langle \log S^i \rangle_T.$$
 
@@ -86,15 +86,15 @@ For the index and constituents, define:
 - Index realised variance: $\mathrm{RV}_T^0 := \langle \log S^0 \rangle_T$.
 - Constituent realised variances: $\mathrm{RV}_T^i := \langle \log S^i \rangle_T$, $i=1,\dots,d$.
 
-In this implementation, the **dispersion payoff** is defined as
+In this implementation, the dispersion payoff is defined as
 
 $$\Phi_{\text{disp}}
   := \mathrm{RV}_T^0 \;-\; \sum_{i=1}^d w_i \,\mathrm{RV}_T^i.$$
 
-That is, dispersion is measured as **index variance minus weighted single‑name variance** (this is the convention actually used in the code), rather than the opposite sign. Interpretation:
+That is, dispersion is measured as index variance minus weighted single‑name variance (this is the convention actually used in the code), rather than the opposite sign. Interpretation:
 
-- If $\Phi_{\text{disp}} > 0$: the **index variance exceeds** the weighted average of single‑name variances; loosely, the index is moving more as a bloc relative to idiosyncratic volatility.
-- If $\Phi_{\text{disp}} < 0$: the **weighted single‑name variance dominates** index variance.
+- If $\Phi_{\text{disp}} > 0$: the index variance exceeds the weighted average of single‑name variances; loosely, the index is moving more as a bloc relative to idiosyncratic volatility.
+- If $\Phi_{\text{disp}} < 0$: the weighted single‑name variance dominates index variance.
 
 These interpretations follow from standard variance–correlation decompositions of basket variance and are not specific to Neufeld–Sester.
 
@@ -108,7 +108,7 @@ $$0 = t_0 < t_1 < \dots < t_N = T$$
 
 are available (here, trading days over a 3‑month window).
 
-The **discrete realised variance** for asset $i$ is defined in the code as
+The discrete realised variance for asset $i$ is defined in the code as
 
 $$\widehat{\mathrm{RV}}_T^i
     := 252 \sum_{k=1}^N
@@ -116,11 +116,11 @@ $$\widehat{\mathrm{RV}}_T^i
             \log\frac{S^i_{t_k}}{S^i_{t_{k-1}}}
           \right)^2,$$
           
-where the factor $252$ annualizes daily returns to variance per year.
+where the factor $252$ annualises daily returns to variance per year.
 
-This is the usual discrete‑time estimator of quadratic variation used in empirical finance (with annualization) and converges to $\langle \log S^i \rangle_T$ up to a deterministic scaling factor as the mesh of the partition goes to zero, under standard conditions on $S^i$.
+This is the usual discrete‑time estimator of quadratic variation used in empirical finance (with annualisation) and converges to $\langle \log S^i \rangle_T$ up to a deterministic scaling factor as the mesh of the partition goes to zero, under standard conditions on $S^i$.
 
-Given these, the **discrete dispersion payoff** implemented in the code is
+Given these, the discrete dispersion payoff implemented in the code is
 
 $$\widehat{\Phi}_{\text{disp}}
     := \widehat{\mathrm{RV}}_T^0
@@ -128,8 +128,8 @@ $$\widehat{\Phi}_{\text{disp}}
 
 This $\widehat{\Phi}_{\text{disp}}$ drives:
 
-- The **Monte Carlo labels**, where it is evaluated on simulated price paths.
-- The **backtest P\&L**, where it is computed from realised Yahoo Finance prices over each 3‑month window.
+- The Monte Carlo labels, where it is evaluated on simulated price paths.
+- The backtest P\&L, where it is computed from realised Yahoo Finance prices over each 3‑month window.
 
 While the theory is naturally formulated in terms of continuous‑time quadratic variation, this discrete definition (with annualization) is the standard plug‑in estimator used in both academic and practitioner work on variance products and is consistent with treating $\widehat{\Phi}_{\text{disp}}$ as a payoff in the Neufeld–Sester sense (they also approximate path‑dependent functionals by discrete‑time grids when computing bounds numerically; see Neufeld–Sester, Section II.C, Examples II.5–II.8).
 
@@ -139,13 +139,13 @@ While the theory is naturally formulated in terms of continuous‑time quadratic
 
 ### 1.4.1 Martingale measures consistent with vanilla options
 
-Let $x$ denote the **market state at time 0**, i.e. the collection of:
+Let $x$ denote the market state at time 0, i.e. the collection of:
 
 - Current spots $S_0^0,\dots,S_0^d$.
 - Vanilla option quotes (or equivalently implied volatilities) on each asset at maturity $T$ across the moneyness grid.
 - Discount factors and dividend yields.
 
-Following Neufeld–Sester (Section II.A), define $\mathcal M_{\text{vanilla}}(x)$ as the set of **risk‑neutral martingale measures** on the multi‑asset path space such that:
+Following Neufeld–Sester (Section II.A), define $\mathcal M_{\text{vanilla}}(x)$ as the set of risk‑neutral martingale measures on the multi‑asset path space such that:
 
 - The discounted processes are martingales under $Q$.
 - The prices of all liquid vanillas (our synthetic call and put prices) match their observed levels at time 0 under $Q$.
@@ -155,7 +155,7 @@ This is exactly the “model‑independent” set of candidate measures consider
 
 ### 1.4.2 Model‑free bounds and fair value
 
-Given $\Phi_{\text{disp}}$, define **model‑free no‑arbitrage bounds**:
+Given $\Phi_{\text{disp}}$, define model‑free no‑arbitrage bounds:
 
 $$\begin{aligned}
   L(x) &:= \inf_{Q \in \mathcal M_{\text{vanilla}}(x)}
@@ -164,9 +164,9 @@ $$\begin{aligned}
             \mathbb E_Q[\Phi_{\text{disp}} \mid \mathcal F_0].
   \end{aligned}$$
 
-This is a direct specialization of the Neufeld–Sester definition of model‑free upper and lower bounds for a general payoff functional $\varphi$ (Neufeld–Sester, Section II.A, Theorem II.2).
+This is a direct specialisation of the Neufeld–Sester definition of model‑free upper and lower bounds for a general payoff functional $\varphi$ (Neufeld–Sester, Section II.A, Theorem II.2).
 
-A **conceptual fair value** is then
+A conceptual fair value is then
 
 $$P^*_{\text{fair}}(x) := \frac{L(x) + U(x)}{2}.$$
 
@@ -184,18 +184,18 @@ for the specific payoff $\Phi_{\text{disp}}$.
 
 ### 1.5.1 Monte Carlo pseudo‑fair value
 
-Solving the full multi‑asset MOT / LP problem for dispersion on 21 underlyings at each historical date would be computationally extremely demanding. Instead, Phase 1–2 of this project adopts the following **model‑based approximation**:
+Solving the full multi‑asset MOT / LP problem for dispersion on 21 underlyings at each historical date would be computationally extremely demanding. Instead, Phase 1–2 of this project adopts the following model‑based approximation:
 
 1. For each historical date $t$, construct synthetic 3‑month IV surfaces for SX5E and its 20 constituents on a fixed moneyness grid.
 2. Extract:
    - Per‑asset volatilities from synthetic ATM IVs.
-   - A $21\times 21$ **historical correlation matrix** from 60‑day rolling log‑returns (used internally for simulation, not as NN features).
-3. Define a **multi‑asset GBM** under a risk‑neutral measure $Q^{\text{MC}}_x$ whose:
+   - A $21\times 21$ historical correlation matrix from 60‑day rolling log‑returns (used internally for simulation, not as NN features).
+3. Define a multi‑asset GBM under a risk‑neutral measure $Q^{\text{MC}}_x$ whose:
    - Marginal volatilities match synthetic ATM IVs.
    - Correlations match the historical correlation estimate.
 4. Simulate $N_{\text{paths}}$ paths $(S^{0,(j)},\dots,S^{d,(j)})$ over $[0,T]$ under this calibrated model.
-5. For each path $j$, compute the discrete dispersion payoff $\widehat{\Phi}^{(j)}_{\text{disp}}$ using the annualized definition from Section 1.3.2.
-6. Define the **Monte Carlo pseudo‑fair value**:
+5. For each path $j$, compute the discrete dispersion payoff $\widehat{\Phi}^{(j)}_{\text{disp}}$ using the annualised definition from Section 1.3.2.
+6. Define the Monte Carlo pseudo‑fair value:
 
    $$P_{\text{MC}}(x)
        := \frac{1}{N_{\text{paths}}}
@@ -212,7 +212,7 @@ The neural network $V_{\text{NN}}(x;\theta)$ is trained in Phase 2 to approximat
 
 $$V_{\text{NN}}(x;\theta) \approx P_{\text{MC}}(x).$$
 
-The **input feature vector** $x_t \in \mathbb{R}^{274}$ used in the implementation is constructed as follows (consistent with the code):
+The input feature vector $x_t \in \mathbb{R}^{274}$ used in the implementation is constructed as follows (consistent with the code):
 
 - Spots and forwards:
   - For each of the 21 assets: spot $S_0^i$ and 3‑month forward $F_0^i = S_0^i e^{(r_i - q_i)T}$
@@ -225,24 +225,24 @@ The **input feature vector** $x_t \in \mathbb{R}^{274}$ used in the implementati
   - Total: $21 \times 7 = 147$ features.
 - Padding:
   - The above yield $42 + 42 + 147 = 231$ economically meaningful features.
-  - The remaining $274 - 231 = 43$ coordinates are **zero padding** used purely to match the desired NN input dimension; they are not interpreted or used downstream.
+  - The remaining $274 - 231 = 43$ coordinates are zero padding used purely to match the desired NN input dimension; they are not interpreted or used downstream.
 
-Importantly, the **60‑day rolling correlation matrix** used in Monte Carlo label generation is *not included* in the feature vector; it is computed directly from historical returns when simulating paths and does not appear as an NN input.
+Importantly, the 60‑day rolling correlation matrix used in Monte Carlo label generation is not included in the feature vector; it is computed directly from historical returns when simulating paths and does not appear as an NN input.
 
 The network architecture implemented in code is:
 
 - Input layer: dimension $274$.
 - Hidden layers: fully‑connected MLP with widths $256 \to 128 \to 64$.
 - Activation: ReLU after each hidden layer.
-- Dropout: $0.2$ on the first two hidden layers for regularization.
+- Dropout: $0.2$ on the first two hidden layers for regularisation.
 - Output layer: linear layer with 1 neuron (scalar fair value).
 
-This is a **simplified 3‑layer architecture** relative to the original 4‑layer conceptual spec (512 → 256 → 128 → 64), chosen for computational efficiency on CPU while retaining sufficient capacity for this problem.
+This is a simplified 3‑layer architecture relative to the original 4‑layer conceptual spec (512 → 256 → 128 → 64), chosen for computational efficiency on CPU while retaining sufficient capacity for this problem.
 
 The training configuration is:
 
 - Loss: mean squared error (MSE) between $V_{\text{NN}}(x_t)$ and $P_{\text{MC}}(x_t)$.
-- Optimizer: Adam with learning rate $10^{-3}$ and weight decay $10^{-4}$.
+- Optimiser: Adam with learning rate $10^{-3}$ and weight decay $10^{-4}$.
 - Batch size: $64$.
 - Early stopping: patience of 20 epochs based on validation loss.
 - Learning‑rate scheduler: ReduceLROnPlateau on validation loss.
@@ -251,30 +251,30 @@ The training configuration is:
 
 ## 1.6 Trading signal definition
 
-*(Signal math and its exact normalization will be refined once all implementation issues are fully reconciled; for now, this section describes the conceptual intent.)*
+(Signal math and its exact normalisation will be refined once all implementation issues are fully reconciled; for now, this section describes the conceptual intent.)
 
 Let:
 
-- $V_{\text{NN}}(t) := V_{\text{NN}}(x_t)$ be the **neural‑network fair value** of the dispersion payoff for the market state $x_t$ on date $t$.
-- $V_{\text{impl}}(t)$ be the **implementation price** of the dispersion trade inferred from synthetic option surfaces on date $t$ (i.e. the cost of putting on the implementable dispersion structure consistent with our payoff).
+- $V_{\text{NN}}(t) := V_{\text{NN}}(x_t)$ be the neural‑network fair value of the dispersion payoff for the market state $x_t$ on date $t$.
+- $V_{\text{impl}}(t)$ be the implementation price of the dispersion trade inferred from synthetic option surfaces on date $t$ (i.e. the cost of putting on the implementable dispersion structure consistent with our payoff).
 
-Conceptually, the core **mispricing signal** is defined as the deviation between NN fair value and implementation price:
+Conceptually, the core mispricing signal is defined as the deviation between NN fair value and implementation price:
 
 $$\text{Signal}_t := V_{\text{NN}}(t) - V_{\text{impl}}(t).$$
 
 Interpretation (conceptual target):
 
-- If $`\text{Signal}_t > 0`$: the neural net judges dispersion to be **underpriced** (fair value above implementation price) $\Rightarrow$ candidate to **buy dispersion** (take a long exposure to $\widehat{\Phi}_{\text{disp}}$).
-- If $`\text{Signal}_t < 0`$: dispersion appears **overpriced** $\Rightarrow$ candidate to **sell dispersion** (short exposure to $\widehat{\Phi}_{\text{disp}}$).
+- If $`\text{Signal}_t > 0`$: the neural net judges dispersion to be underpriced (fair value above implementation price) $\Rightarrow$ candidate to buy dispersion (take a long exposure to $\widehat{\Phi}_{\text{disp}}$).
+- If $`\text{Signal}_t < 0`$: dispersion appears overpriced $\Rightarrow$ candidate to sell dispersion (short exposure to $\widehat{\Phi}_{\text{disp}}$).
 - Trades are entered only when $|\text{Signal}_t|$ exceeds a threshold $\theta > 0$ to filter out noise; detailed thresholding and position‑sizing rules are specified in the evaluation and backtesting document.
 
-In the actual implementation, a **normalized version** of this signal is used to make mispricings comparable across regimes; the exact normalization and sign convention will be documented after all coherence checks are completed.
+In the actual implementation, a normalised version of this signal is used to make mispricings comparable across regimes; the exact normalization and sign convention will be documented after all coherence checks are completed.
 
 ---
 
 ## 1.7 Scope and possible extensions
 
-The **baseline scope** of this document is:
+The baseline scope of this document is:
 
 - Fixed 3‑month maturity.
 - SX5E index + 20 largest constituents by weight (21 underlyings total).
@@ -284,11 +284,11 @@ The **baseline scope** of this document is:
   
 - Neural network outputs a single scalar fair value approximating Monte Carlo pseudo‑labels.
 
-Natural **extensions**, consistent with the Neufeld–Sester framework for parametric families of payoffs (Neufeld–Sester, Remark II.3), include:
+Natural extensions, consistent with the Neufeld–Sester framework for parametric families of payoffs (Neufeld–Sester, Remark II.3), include:
 
-- Treating weights $(w_1,\dots,w_d)$, horizon $T$, or even different functionals (e.g. basket calls, best‑of options) as **payoff parameters** $\theta$, and training a single network on a whole parametric family $\Phi_\theta$.
-- Outputting **lower/upper bounds $(L(x),U(x))$** jointly with the midpoint, as in their multi‑output architectures.
-- Incorporating **variance constraints** or additional distributional information into the MOT problem, following their extension to constrained MOT (Neufeld–Sester, Sections III–IV).
+- Treating weights $(w_1,\dots,w_d)$, horizon $T$, or even different functionals (e.g. basket calls, best‑of options) as payoff parameters $\theta$, and training a single network on a whole parametric family $\Phi_\theta$.
+- Outputting lower/upper bounds $(L(x),U(x))$ jointly with the midpoint, as in their multi‑output architectures.
+- Incorporating variance constraints or additional distributional information into the MOT problem, following their extension to constrained MOT (Neufeld–Sester, Sections III–IV).
 
 For Phase 1–2, however, this document fixes $\Phi_{\text{disp}}$ and the 3‑month horizon, and serves as the mathematical foundation for:
 

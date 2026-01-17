@@ -280,8 +280,8 @@ $$\text{Signal}_t := V_{\text{NN}}(t) - V_{\text{impl}}(t).$$
 
 Interpretation (conceptual target):
 
-- If $\text{Signal}_t > 0$: the neural net judges dispersion to be **underpriced** (fair value above implementation price) $\Rightarrow$ candidate to **buy dispersion** (take a long exposure to $\widehat{\Phi}_{\text{disp}}$). [SUPPOSED TO BE PRIOR KNOWLEDGE]
-- If $\text{Signal}_t < 0$: dispersion appears **overpriced** $\Rightarrow$ candidate to **sell dispersion** (short exposure to $\widehat{\Phi}_{\text{disp}}$). [SUPPOSED TO BE PRIOR KNOWLEDGE]
+- If $\text{Signal}_t > 0$ : the neural net judges dispersion to be **underpriced** (fair value above implementation price) $\Rightarrow$ candidate to **buy dispersion** (take a long exposure to $\widehat{\Phi}_{\text{disp}}$). [SUPPOSED TO BE PRIOR KNOWLEDGE]
+- If $\text{Signal}_t < 0$ : dispersion appears **overpriced** $\Rightarrow$ candidate to **sell dispersion** (short exposure to $\widehat{\Phi}_{\text{disp}}$ ). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - Trades are entered only when $|\text{Signal}_t|$ exceeds a threshold $\theta > 0$ to filter out noise; detailed thresholding and position‑sizing rules are specified in the evaluation and backtesting document. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 In the actual implementation, a **normalized version** of this signal is used to make mispricings comparable across regimes; the exact normalization and sign convention will be documented after all coherence checks are completed.
@@ -296,7 +296,7 @@ The **baseline scope** of this document is:
 - SX5E index + 20 largest constituents by weight (21 underlyings total). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - Single payoff $\Phi_{\text{disp}}$ as defined in Section 1.3, with the convention
 
-  $$\Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i.$$
+  $$\Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i$$
   
   [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - Neural network outputs a single scalar fair value approximating Monte Carlo pseudo‑labels. [SUPPOSED TO BE PRIOR KNOWLEDGE]

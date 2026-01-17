@@ -28,8 +28,8 @@ Consider a financial market on a filtered probability space $(\Omega,\mathcal F,
 
 The traded assets are:
 
-- **Index process**\\
-  $$S^0 = (S_t^0)_{t\ge 0},$$\\
+- **Index process**\\\\
+  $$S^0 = (S_t^0)_{t\ge 0},$$\\\\
   representing the EURO STOXX 50 index (or a liquid ETF proxy). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 - **Constituent processes**

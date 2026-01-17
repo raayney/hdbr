@@ -35,19 +35,21 @@ The traded assets are:
   representing the EURO STOXX 50 index (or a liquid ETF proxy). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 - **Constituent processes**
+  
   $$S^1,\dots,S^{20}, \quad S^i = (S_t^i)_{t\ge 0},$$
+  
   corresponding to the top 20 SX5E constituents by index weight. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Write $d = 20$ for the number of constituents. [SUPPOSED TO BE PRIOR KNOWLEDGE] Each $S^i$ is modeled as a (discounted) semimartingale under risk‑neutral measures; this is the same general setup used in Neufeld–Sester for multi‑asset derivatives, where the joint path
-$$
-S = (S^0,\dots,S^d)
-$$
+
+$$S = (S^0,\dots,S^d)$$
+
 is the underlying process for a payoff functional (Neufeld–Sester, Sections I, II.A).
 
 The **trading horizon per dispersion trade** is fixed to
-$$
-T = 3 \text{ months} \approx 0.25 \text{ years},
-$$
+
+$$T = 3 \text{ months} \approx 0.25 \text{ years},$$
+
 a design choice reflecting the liquid 3‑month options market on SX5E and its constituents. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 At time $t=0$, the observable state includes:
@@ -58,15 +60,15 @@ At time $t=0$, the observable state includes:
 - Additional engineered quantities (realised volatilities, historical correlations, etc.), as defined in the data and feature specification. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Let $w_1,\dots,w_d$ denote the **constituent weights** in SX5E, satisfying
-$$
-\sum_{i=1}^d w_i = 1, \quad w_i \ge 0.
-$$
+
+$$\sum_{i=1}^d w_i = 1, \quad w_i \ge 0.$$
+
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Define the corresponding **basket level**:
-$$
-B_t := \sum_{i=1}^d w_i S_t^i.
-$$
+
+$$B_t := \sum_{i=1}^d w_i S_t^i.$$
+
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 The continuous‑time objects $S^i$ and their quadratic variations will be used to justify the dispersion payoff mathematically; their discrete‑time approximations (based on daily data) are used for concrete label generation and backtesting. [SUPPOSED TO BE PRIOR KNOWLEDGE]
@@ -78,9 +80,9 @@ The continuous‑time objects $S^i$ and their quadratic variations will be used 
 ### 1.3.1 Continuous‑time definition
 
 In continuous time, for each asset $S^i$ over $[0,T]$, define the **realised variance** as the quadratic variation of its log‑price:
-$$
-\mathrm{RV}_T^i := \langle \log S^i \rangle_T.
-$$
+
+$$\mathrm{RV}_T^i := \langle \log S^i \rangle_T.$$
+
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 This is the standard variance‑swap object: under mild assumptions on $S^i$, a variance swap with payoff $\mathrm{RV}_T^i$ can be replicated by a static position in a strip of options plus dynamic trading in the underlying. This classical model‑free variance replication result comes from the robust options literature (e.g. Carr–Madan, Dupire) rather than Neufeld–Sester. [SUPPOSED TO BE PRIOR KNOWLEDGE]
@@ -91,10 +93,10 @@ For the index and constituents, define:
 - Constituent realised variances: $\mathrm{RV}_T^i := \langle \log S^i \rangle_T$, $i=1,\dots,d$. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 In this implementation, the **dispersion payoff** is defined as
-$$
-\Phi_{\text{disp}}
-  := \mathrm{RV}_T^0 \;-\; \sum_{i=1}^d w_i \,\mathrm{RV}_T^i.
-$$
+
+$$\Phi_{\text{disp}}
+  := \mathrm{RV}_T^0 \;-\; \sum_{i=1}^d w_i \,\mathrm{RV}_T^i.$$
+  
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 That is, dispersion is measured as **index variance minus weighted single‑name variance** (this is the convention actually used in the code), rather than the opposite sign. Interpretation:
@@ -109,29 +111,29 @@ Mathematically, $\Phi_{\text{disp}}$ is a functional of the full multi‑asset p
 ### 1.3.2 Discrete‑time / implementable approximation
 
 For implementation and backtesting, only discrete observations at dates
-$$
-0 = t_0 < t_1 < \dots < t_N = T
-$$
+
+$$0 = t_0 < t_1 < \dots < t_N = T$$
+
 are available (here, trading days over a 3‑month window).
 
 The **discrete realised variance** for asset $i$ is defined in the code as
-$$
-\widehat{\mathrm{RV}}_T^i
-  := 252 \sum_{k=1}^N
-        \left(
-          \log\frac{S^i_{t_k}}{S^i_{t_{k-1}}}
-        \right)^2,
-$$
+
+$$\widehat{\mathrm{RV}}_T^i
+    := 252 \sum_{k=1}^N
+          \left(
+            \log\frac{S^i_{t_k}}{S^i_{t_{k-1}}}
+          \right)^2,$$
+          
 where the factor $252$ annualizes daily returns to variance per year. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 This is the usual discrete‑time estimator of quadratic variation used in empirical finance (with annualization) and converges to $\langle \log S^i \rangle_T$ up to a deterministic scaling factor as the mesh of the partition goes to zero, under standard conditions on $S^i$. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Given these, the **discrete dispersion payoff** implemented in the code is
-$$
-\widehat{\Phi}_{\text{disp}}
-  := \widehat{\mathrm{RV}}_T^0
-     \;-\; \sum_{i=1}^d w_i \,\widehat{\mathrm{RV}}_T^i.
-$$
+
+$$\widehat{\Phi}_{\text{disp}}
+    := \widehat{\mathrm{RV}}_T^0
+       \;-\; \sum_{i=1}^d w_i \,\widehat{\mathrm{RV}}_T^i.$$
+       
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 This $\widehat{\Phi}_{\text{disp}}$ drives:
@@ -164,28 +166,26 @@ This is exactly the “model‑independent” set of candidate measures consider
 ### 1.4.2 Model‑free bounds and fair value
 
 Given $\Phi_{\text{disp}}$, define **model‑free no‑arbitrage bounds**:
-$$
-\begin{aligned}
-L(x) &:= \inf_{Q \in \mathcal M_{\text{vanilla}}(x)}
-          \mathbb E_Q[\Phi_{\text{disp}} \mid \mathcal F_0], \\
-U(x) &:= \sup_{Q \in \mathcal M_{\text{vanilla}}(x)}
-          \mathbb E_Q[\Phi_{\text{disp}} \mid \mathcal F_0].
-\end{aligned}
-$$
+
+$$\begin{aligned}
+  L(x) &:= \inf_{Q \in \mathcal M_{\text{vanilla}}(x)}
+            \mathbb E_Q[\Phi_{\text{disp}} \mid \mathcal F_0], \\
+  U(x) &:= \sup_{Q \in \mathcal M_{\text{vanilla}}(x)}
+            \mathbb E_Q[\Phi_{\text{disp}} \mid \mathcal F_0].
+  \end{aligned}$$
 
 This is a direct specialization of the Neufeld–Sester definition of model‑free upper and lower bounds for a general payoff functional $\varphi$ (Neufeld–Sester, Section II.A, Theorem II.2).
 
 A **conceptual fair value** is then
-$$
-P^*_{\text{fair}}(x) := \frac{L(x) + U(x)}{2}.
-$$
+
+$$P^*_{\text{fair}}(x) := \frac{L(x) + U(x)}{2}.$$
 
 In Neufeld–Sester’s language, this corresponds to the midpoint of the super‑ and sub‑hedging prices and is one of the natural scalar targets they consider when training neural networks: they explicitly discuss outputting either $(L(x),U(x))$ or a single scalar fair value $P_{\text{fair}}(x)$ (Neufeld–Sester, Section II.5, “Output specifications”).
 
 This project conceptually adopts the same target: the pricing engine is meant to approximate the map
-$$
-x \;\mapsto\; P^*_{\text{fair}}(x),
-$$
+
+$$x \;\mapsto\; P^*_{\text{fair}}(x),$$
+
 for the specific payoff $\Phi_{\text{disp}}$.
 
 ---
@@ -206,12 +206,12 @@ Solving the full multi‑asset MOT / LP problem for dispersion on 21 underlyings
 4. Simulate $N_{\text{paths}}$ paths $(S^{0,(j)},\dots,S^{d,(j)})$ over $[0,T]$ under this calibrated model. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 5. For each path $j$, compute the discrete dispersion payoff $\widehat{\Phi}^{(j)}_{\text{disp}}$ using the annualized definition from Section 1.3.2. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 6. Define the **Monte Carlo pseudo‑fair value**:
-   $$
-   P_{\text{MC}}(x)
-     := \frac{1}{N_{\text{paths}}}
-        \sum_{j=1}^{N_{\text{paths}}}
-          \widehat{\Phi}^{(j)}_{\text{disp}}.
-   $$
+
+   $$P_{\text{MC}}(x)
+       := \frac{1}{N_{\text{paths}}}
+          \sum_{j=1}^{N_{\text{paths}}}
+            \widehat{\Phi}^{(j)}_{\text{disp}}.$$
+   
    [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 This is the standard Monte Carlo estimator of $\mathbb E_{Q^{\text{MC}}_x}[\widehat{\Phi}_{\text{disp}}]$: it is unbiased and converges at rate $O(N_{\text{paths}}^{-1/2})$ by the law of large numbers and the central limit theorem, facts which come from basic probability theory rather than Neufeld–Sester. [SUPPOSED TO BE PRIOR KNOWLEDGE]
@@ -221,9 +221,9 @@ The idea of first computing (possibly expensive) labels for a family of payoffs 
 ### 1.5.2 Neural network surrogate and feature vector
 
 The neural network $V_{\text{NN}}(x;\theta)$ is trained in Phase 2 to approximate $P_{\text{MC}}(x)$:
-$$
-V_{\text{NN}}(x;\theta) \approx P_{\text{MC}}(x).
-$$
+
+$$V_{\text{NN}}(x;\theta) \approx P_{\text{MC}}(x).$$
+
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 The **input feature vector** $x_t \in \mathbb{R}^{274}$ used in the implementation is constructed as follows (consistent with the code):
@@ -273,9 +273,9 @@ Let:
 - $V_{\text{impl}}(t)$ be the **implementation price** of the dispersion trade inferred from synthetic option surfaces on date $t$ (i.e. the cost of putting on the implementable dispersion structure consistent with our payoff). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Conceptually, the core **mispricing signal** is defined as the deviation between NN fair value and implementation price:
-$$
-\text{Signal}_t := V_{\text{NN}}(t) - V_{\text{impl}}(t).
-$$
+
+$$\text{Signal}_t := V_{\text{NN}}(t) - V_{\text{impl}}(t).$$
+
 [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 Interpretation (conceptual target):
@@ -295,9 +295,9 @@ The **baseline scope** of this document is:
 - Fixed 3‑month maturity. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - SX5E index + 20 largest constituents by weight (21 underlyings total). [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - Single payoff $\Phi_{\text{disp}}$ as defined in Section 1.3, with the convention
-  $$
-  \Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i.
-  $$
+
+  $$\Phi_{\text{disp}} = \mathrm{RV}_T^0 - \sum_{i=1}^d w_i \mathrm{RV}_T^i.$$
+  
   [SUPPOSED TO BE PRIOR KNOWLEDGE]
 - Neural network outputs a single scalar fair value approximating Monte Carlo pseudo‑labels. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 

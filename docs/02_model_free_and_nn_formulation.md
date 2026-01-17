@@ -2,27 +2,27 @@
 
 ## 2.1 Motivation: model‑free no‑arbitrage bounds
 
-Classical derivative pricing (e.g. Black–Scholes) assumes a specific stochastic model for the underlying assets and calibrates model parameters to market data. This introduces **model risk**: if the true market dynamics differ from the assumed model, prices and hedges can be systematically wrong.
+Classical derivative pricing like Black–Scholes assumes a specific stochastic model for the underlying assets and calibrates model parameters to market data. This introduces **model risk**: prices and hedges can be systematically wrong if the assumed model differs from true market dynamics.
 
 A **model‑free approach** instead asks:
 
-> Given observed prices of liquid instruments (e.g. vanilla options), what can we say about the price of a derivative *without* committing to a particular stochastic model?
+Given observed prices of liquid instruments such as vanilla options, what can we say about the price of a derivative without committing to a particular stochastic model?
 
-The model‑free answer is an **interval of arbitrage‑free prices**: an interval $[L(x), U(x)]$ such that any price $P$ for the derivative outside this band would admit a model‑independent arbitrage. These bounds depend only on:
+The model‑free answer is an interval of arbitrage‑free prices: an interval $[L(x), U(x)]$ such that any price $P$ for the derivative outside this band would admit a model‑independent arbitrage. These bounds depend only on:
 
 - market‑observable vanilla prices,
 - absence of arbitrage,
-- and the payoff’s structure,
+- and the payoff’s structure.
 
-not on any assumed diffusion, jump, or volatility model. This is precisely the perspective formalized in Neufeld–Sester’s model‑free pricing framework (Theorem II.2, etc.).
+They do not depend on any assumed diffusion, jump, or volatility model. This is precisely the perspective formalised in Neufeld–Sester’s model‑free pricing framework (Theorem II.2, etc.).
 
-For high‑dimensional payoffs like dispersion on an index and 20 constituents, this is particularly attractive because **correlation** and joint tail behaviour are notoriously hard to model correctly; model‑free bounds sidestep misspecified parametric correlation dynamics.
+For high‑dimensional payoffs like dispersion on an index and 20 constituents, this is particularly attractive because correlation and joint tail behaviour are hard to model correctly; model‑free bounds sidestep misspecified parametric correlation dynamics.
 
 ---
 
 ## 2.2 Model‑free framework for dispersion pricing
 
-This section summarizes the Neufeld–Sester model‑free setup, specialized to the dispersion payoff from Section 1.3 but still independent of any GBM or Monte Carlo approximation.
+This section summarizes the Neufeld–Sester model‑free setup, specialised to the dispersion payoff from Section 1.3 but still independent of any GBM or Monte Carlo approximation.
 
 ### 2.2.1 Observable market data
 

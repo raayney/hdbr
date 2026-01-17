@@ -2,14 +2,14 @@
 
 ## 1.1 High‑level objective
 
-The project builds a trading system for **variance dispersion** on the EURO STOXX 50 (SX5E) that is powered by a **deep‑learning pricing engine** inspired by the model‑free framework of Neufeld–Sester for computing no‑arbitrage bounds via neural networks and martingale optimal transport (MOT) (Neufeld–Sester, Sections II.A–II.B, III).
+The project builds a trading system for variance dispersion on the EURO STOXX 50 (SX5E), powered by a deep‑learning pricing engine inspired by the model‑free framework of Neufeld–Sester for computing no‑arbitrage bounds via neural networks and martingale optimal transport (MOT) (Neufeld–Sester, Sections II.A–II.B, III).
 
 At a high level, the system:
 
-- Observes market data for an index and its constituents (spot prices and synthetic vanilla options).
+- Observes market data for an index and its constituents (specifically spot prices and synthetic vanilla options).
 - Treats a variance‑based dispersion payoff as an abstract contingent claim $\Phi_{\text{disp}}$ on these assets. [SUPPOSED TO BE PRIOR KNOWLEDGE]
-- Conceptually targets the **model‑free no‑arbitrage band** and an associated fair value for $\Phi_{\text{disp}}$, defined exactly as in the Neufeld–Sester framework for general high‑dimensional payoffs (Neufeld–Sester, Theorem II.2).
-- In practice, uses **Monte Carlo pseudo‑labels** to approximate a fair value $P_{\text{MC}}(x)$ and trains a neural network surrogate $V_{\text{NN}}(x)$ to learn this mapping from high‑dimensional market state $x$ to price, following their supervised learning approach (Neufeld–Sester, Section II.B–II.C, Algorithm 1).
+- Conceptually targets the model‑free no‑arbitrage band and an associated fair value for $\Phi_{\text{disp}}$, defined exactly as in the Neufeld–Sester framework for general high‑dimensional payoffs (Neufeld–Sester, Theorem II.2).
+- In practice, uses Monte Carlo pseudo‑labels to approximate a fair value $P_{\text{MC}}(x)$ and trains a neural network surrogate $V_{\text{NN}}(x)$ to learn this mapping from high‑dimensional market state $x$ to price, following their supervised learning approach (Neufeld–Sester, Section II.B–II.C, Algorithm 1).
 - Compares $V_{\text{NN}}(x)$ to an implementation price derived from synthetic option surfaces to generate actionable trading signals. [SUPPOSED TO BE PRIOR KNOWLEDGE]
 
 This document defines rigorously:

@@ -114,11 +114,14 @@ Using the realised variance operator above, the dispersion payoff calculator per
 
 1. Compute index realised variance on each path:
 
-   $$\widehat{\mathrm{RV}}_T^{0,(\ell)} = \text{realised_variance}(\text{index_paths})_\ell.$$
+   $`\widehat{\mathrm{RV}}_T^{0,(\ell)}
+     = \text{realised_variance}(\text{index_paths})_\ell.`$
 
 2. For each of the 20 constituents, compute realised variance on each path:
 
-   $$\widehat{\mathrm{RV}}_T^{i,(\ell)} = \text{realised_variance}(\text{stock\_paths}[i])_\ell, \quad i = 1,\dots,20.$$
+   $`\widehat{\mathrm{RV}}_T^{i,(\ell)}
+     = \text{realised_variance}(\text{stock\_paths}[i])_\ell,
+     \quad i = 1,\dots,20.`$
 
 3. Combine with basket weights $`w_i`$ (equal weights $`1/20`$ by default):
 

@@ -12,7 +12,7 @@ Complete as of Jan 2026: analysis notebooks, backtests; research-focused, not pr
 
 Data-driven NN pricing without model params, per Neufeld & Sester (2021). [web:0]
 
-**Theorem 11.2 (Continuity of Hedging Prices)**: For continuous parametric payoff families $`\theta \mapsto \Phi_\theta`$ on compact $`K_1`$, super/sub-hedging prices $`(D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)\), \(D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)\)`$ continuous w.r.t. market data $`((K, \pi, S_0, \theta)\)`$ in suitable topology. [web:0]
+**Theorem 11.2 (Continuity of Hedging Prices)**: For continuous parametric payoff families $`\theta \mapsto \Phi_\theta`$ on compact $`K_1`$, super/sub-hedging prices $`(D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)`$, $`D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)\)`$ continuous w.r.t. market data $`(K, \pi, S_0, \theta)`$ in suitable topology. [web:0]
 
 Implies NNs (universal approximators) can learn bounds for dispersion \(\Phi(S_T) = \sum w_i \sigma_i^2 - \sigma_b^2\). Trained via MSE:
 \[

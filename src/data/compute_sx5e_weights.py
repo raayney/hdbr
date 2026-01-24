@@ -1,7 +1,3 @@
-"""
-Compute SX5E weights: TOP_20 normalized to actual index weight.
-Imports from src.config for DRY principle.
-"""
 import sys
 sys.path.insert(0, '/Users/rayney/Documents/basket-dispersion-project')
 
@@ -16,8 +12,7 @@ from src.config import TOP_20_CONSTITUENTS, SX5E_TICKER, BACKTEST_START, BACKTES
 TOP_20_WEIGHT_IN_INDEX = 0.70
 
 def extract_close_price(data, ticker):
-    """Extract close price from yfinance DataFrame, handling MultiIndex columns."""
-    # Handle MultiIndex columns: ('Close', 'SAP')
+
     if isinstance(data.columns, pd.MultiIndex):
         if ('Close', ticker) in data.columns:
             return data[('Close', ticker)]
@@ -27,7 +22,7 @@ def extract_close_price(data, ticker):
             price_cols = [col for col in data.columns if 'Close' in col[0]]
             if price_cols:
                 return data[price_cols[0]]
-    # Handle simple columns
+                
     elif 'Adj Close' in data.columns:
         return data['Adj Close']
     elif 'Close' in data.columns:
@@ -71,15 +66,12 @@ def main():
         print("\n❌ No tickers downloaded!")
         return
     
-    # Merge all prices
     df = pd.concat([s.to_frame(name=t) for t, s in all_prices.items()], axis=1)
     df = df.sort_index()
     print(f"\n✓ Merged: {df.shape[0]} trading days, {df.shape[1]} tickers\n")
     
-    # Month-end closes
     monthly = df.resample('ME').last()
     
-    # Separate index and constituents
     if SX5E_TICKER in monthly.columns:
         constituent_cols = [c for c in monthly.columns if c != SX5E_TICKER]
     else:
@@ -87,7 +79,6 @@ def main():
     
     print(f"Constituents: {len(constituent_cols)}\n")
     
-    # Remove rows with missing data
     constituent_prices = monthly[constituent_cols].dropna(how='any')
     print(f"After removing NaN: {constituent_prices.shape[0]} dates\n")
     
@@ -95,12 +86,10 @@ def main():
         print("❌ No data after removing NaN!")
         return
     
-    # Compute weights
     constituent_total = constituent_prices.sum(axis=1)
     raw_weights = constituent_prices.div(constituent_total, axis=0)
     scaled_weights = raw_weights * TOP_20_WEIGHT_IN_INDEX
     
-    # Save
     output_dir = Path(DATA_DIR)
     output_dir.mkdir(parents=True, exist_ok=True)
     

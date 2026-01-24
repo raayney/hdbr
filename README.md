@@ -55,7 +55,7 @@ Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712. [web:0][file:3][
 2. Jupyter: Run 00→05.
 3. `streamlit run dashboard.py` (interactive views). [file:6]
 
-Stack: PyTorch 2.0.1, Pandas/NumPy/sklearn, Streamlit/Plotly. Data: Train/Val/Test splits ~1251/325/350 days. [file:6]
+Stack: PyTorch 2.0.1, Pandas/NumPy/sklearn, Streamlit/Plotly. Data: Train/Val/Test splits ~1448/180/298 days. [file:6]
 
 ## Limitations
 
@@ -65,7 +65,7 @@ Stack: PyTorch 2.0.1, Pandas/NumPy/sklearn, Streamlit/Plotly. Data: Train/Val/Te
 
 ## References
 
-- Neufeld & Sester, arXiv:2103.11435v3 [web:0]
-- PROJECT_OUTLINE.md [file:6]
+- Neufeld, A., & Sester, J. (2023). A deep learning approach to data-driven model-free pricing and to martingale optimal transport. IEEE Transactions on Information Theory, 69(5), 3043-3064. [web:0]
+- Jacquier & Slaoui (2010). Dispersion trades with variance swaps. arXiv:1004.0125. [web:18]
 
 MIT License. Paris, FR – Jan 24, 2026.

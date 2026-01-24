@@ -5,7 +5,6 @@ from dataclasses import dataclass, asdict
 
 @dataclass
 class Trade:
-    """Represents a single dispersion trade with full lifecycle."""
     entry_date: pd.Timestamp
     exit_date: pd.Timestamp
     entry_price: float          
@@ -16,7 +15,6 @@ class Trade:
     holding_days: int           
     
     def to_dict(self):
-        """Convert to dictionary for DataFrame construction."""
         d = asdict(self)
         
         d['entry_date'] = str(self.entry_date.date())
@@ -31,27 +29,12 @@ class Trade:
                 f"pnl={self.pnl:.2f})")
 
 class PayoffSettlementEngine:
-    """
-    Compute P&L for dispersion trades with full position lifecycle.
-    
-    Trade lifecycle:
-    1. Entry: Buy dispersion at market price (NN signal triggers entry)
-    2. Holding: Monitor position over holding period
-    3. Settlement: Compute realized dispersion, settle P&L
-    
-    P&L = Realized_dispersion - Entry_price
-    """
     
     def __init__(self, 
                  returns_loader,
                  realized_var_calculator,
                  holding_period_days=20):
-        """
-        Args:
-            returns_loader: ReturnsDataLoader instance
-            realized_var_calculator: RealizedVarianceCalculator instance
-            holding_period_days: Holding period (20 days = 1 month)
-        """
+        
         self.returns_loader = returns_loader
         self.rv_calc = realized_var_calculator
         self.holding_period = holding_period_days
@@ -67,21 +50,7 @@ class PayoffSettlementEngine:
                      index_ticker='STOXX50E',
                      constituent_tickers=None,
                      weights=None) -> Optional[Trade]:
-        """
-        Settle a single trade by computing realized dispersion.
         
-        Args:
-            entry_date: Trade entry date
-            entry_price: Market price at entry
-            nn_fair_value: NN prediction at entry
-            signal: Trading signal value
-            index_ticker: Index ticker symbol
-            constituent_tickers: List of constituent tickers
-            weights: Dict of constituent weights
-            
-        Returns:
-            Trade object with P&L, or None if insufficient data
-        """
         
         if weights is None and constituent_tickers is not None:
             n_assets = len(constituent_tickers)
@@ -148,21 +117,7 @@ class PayoffSettlementEngine:
     def settle_multiple_trades(self, 
                                trades_config: List[Dict],
                                verbose=True) -> pd.DataFrame:
-        """
-        Settle multiple trades and return summary DataFrame.
         
-        Args:
-            trades_config: List of trade configuration dicts, each containing:
-                - entry_date
-                - entry_price
-                - nn_fair_value
-                - signal
-                - (optional) index_ticker, constituent_tickers, weights
-            verbose: Print progress
-            
-        Returns:
-            pd.DataFrame: Trade log with all results
-        """
         trades = []
         
         for i, config in enumerate(trades_config):
@@ -189,15 +144,7 @@ class PayoffSettlementEngine:
             return pd.DataFrame()
     
     def compute_summary_statistics(self, trades_df: pd.DataFrame) -> Dict:
-        """
-        Compute comprehensive summary statistics for trade log.
         
-        Args:
-            trades_df: Trade log DataFrame
-            
-        Returns:
-            Dict of summary statistics
-        """
         if len(trades_df) == 0:
             return {}
         

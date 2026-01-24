@@ -1,4 +1,3 @@
-# src/backtest/synthetic_market.py
 import numpy as np
 
 class SyntheticMarketPriceGenerator:

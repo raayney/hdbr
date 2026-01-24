@@ -1,4 +1,3 @@
-# src/backtest/payoff_engine.py
 import pandas as pd
 import numpy as np
 from typing import Dict, List, Optional
@@ -9,17 +8,17 @@ class Trade:
     """Represents a single dispersion trade with full lifecycle."""
     entry_date: pd.Timestamp
     exit_date: pd.Timestamp
-    entry_price: float          # Market price at entry (what we paid)
-    nn_fair_value: float        # NN prediction at entry
-    signal: float               # (Market - NN) / |NN|
-    realized_dispersion: float  # Actual realized dispersion at settlement
-    pnl: float                  # Realized - Entry
-    holding_days: int           # Actual holding period
+    entry_price: float          
+    nn_fair_value: float        
+    signal: float               
+    realized_dispersion: float  
+    pnl: float                  
+    holding_days: int           
     
     def to_dict(self):
         """Convert to dictionary for DataFrame construction."""
         d = asdict(self)
-        # Convert timestamps to strings for JSON serialization
+        
         d['entry_date'] = str(self.entry_date.date())
         d['exit_date'] = str(self.exit_date.date())
         return d
@@ -83,25 +82,25 @@ class PayoffSettlementEngine:
         Returns:
             Trade object with P&L, or None if insufficient data
         """
-        # Default equal weights
+        
         if weights is None and constituent_tickers is not None:
             n_assets = len(constituent_tickers)
             weights = {t: 1.0/n_assets for t in constituent_tickers}
         
-        # Get forward returns over holding period
+        
         forward_returns = self.returns_loader.get_forward_returns(
             entry_date, 
             self.holding_period
         )
         
-        # Check data availability
+        
         if forward_returns is None:
             return None
         
         if len(forward_returns) < self.holding_period:
-            return None  # Insufficient forward data
+            return None  
         
-        # Extract index and constituent returns
+        
         if index_ticker not in forward_returns.columns:
             return None
         
@@ -113,10 +112,10 @@ class PayoffSettlementEngine:
                 constituent_returns_dict[ticker] = forward_returns[ticker]
         
         if len(constituent_returns_dict) < len(constituent_tickers) * 0.8:
-            # More than 20% of constituents missing
+            
             return None
         
-        # Compute realized dispersion
+        
         realized_dispersion = self.rv_calc.compute_dispersion_payoff(
             index_returns,
             constituent_returns_dict,
@@ -126,14 +125,13 @@ class PayoffSettlementEngine:
         if np.isnan(realized_dispersion):
             return None
         
-        # Compute P&L
-        # Long dispersion: profit when realized > entry
+        
         pnl = realized_dispersion - entry_price
         
-        # Exit date
+        
         exit_date = forward_returns.index[-1]
         
-        # Create trade record
+        
         trade = Trade(
             entry_date=pd.to_datetime(entry_date),
             exit_date=exit_date,
@@ -176,7 +174,7 @@ class PayoffSettlementEngine:
             if trade is not None:
                 trades.append(trade)
         
-        # Convert to DataFrame
+        
         if trades:
             trades_df = pd.DataFrame([t.to_dict() for t in trades])
             

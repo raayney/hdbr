@@ -1,13 +1,3 @@
-"""Walk-forward validation for basket dispersion trading model.
-
-Performs time-series cross-validation with multiple folds to prove robustness.
-Preserves original backtest results while testing across different periods.
-
-Output:
-  - walk_forward_results.json: Sharpe/metrics for each fold
-  - walk_forward_comparison.csv: Summary table (current vs walk-forward)
-"""
-
 import pandas as pd
 import numpy as np
 import torch
@@ -27,13 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 class WalkForwardValidator:
-    """Time-series cross-validation: retrain NN on each fold, test on next period."""
     
     def __init__(self, test_threshold: float = 2.0):
-        """
-        Args:
-            test_threshold: Signal threshold to use for all folds (same as your current backtest)
-        """
+        
         self.test_threshold = test_threshold
         self.transaction_costs = TransactionCosts(
             entry_spread_bps=15.0,
@@ -46,7 +32,7 @@ class WalkForwardValidator:
         logger.info(f"WalkForwardValidator initialized (threshold={test_threshold})")
     
     def load_full_dataset(self) -> Dict:
-        """Load complete dataset (train+val+test concatenated)."""
+    
         logger.info("Loading full dataset...")
         
         X_train = np.load(f"{DATA_DIR}/features/X_train.npy")
@@ -64,7 +50,7 @@ class WalkForwardValidator:
         with open(f"{DATA_DIR}/features/scaler.pkl", "rb") as f:
             scaler = pickle.load(f)
         
-        # Concatenate into full time series (already in chronological order)
+
         X_full = np.vstack([X_train, X_val, X_test])
         y_full = np.concatenate([y_train, y_val, y_test])
         dates_full = np.concatenate([dates_train, dates_val, dates_test])
@@ -77,7 +63,7 @@ class WalkForwardValidator:
             'y_full': y_full,
             'dates_full': dates_full,
             'scaler': scaler,
-            # Keep original splits for reference
+          
             'X_train': X_train,
             'X_val': X_val,
             'X_test': X_test,
@@ -92,9 +78,9 @@ class WalkForwardValidator:
     def get_folds(self, X_full: np.ndarray, dates_full: np.ndarray, n_folds: int = 3) -> List[Dict]:
         n_total = len(X_full)
         
-        # Expand training window, fixed test window size
-        base_train_size = int(n_total * 0.65)  # Start with 65% for training
-        test_size = int(n_total * 0.12)  # ~12% per fold
+        
+        base_train_size = int(n_total * 0.65)  
+        test_size = int(n_total * 0.12)  
         
         folds = []
         for fold_num in range(1, n_folds + 1):
@@ -127,7 +113,7 @@ class WalkForwardValidator:
         return folds
     
     def train_model_on_fold(self, X_train: np.ndarray, y_train: np.ndarray, fold_num: int) -> BasketPricingNet:
-        """Retrain NN on fold training data."""
+        
         logger.info(f"Training model for fold {fold_num} ({len(X_train)} samples)...")
         
         from torch.utils.data import DataLoader, TensorDataset
@@ -137,7 +123,6 @@ class WalkForwardValidator:
         optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
         criterion = nn.MSELoss()
         
-        # Use 80/20 split from training data for early stopping
         n_train = int(len(X_train) * 0.8)
         train_dataset = TensorDataset(
             torch.tensor(X_train[:n_train], dtype=torch.float32),
@@ -199,18 +184,16 @@ class WalkForwardValidator:
     
     def run_backtest_on_fold(self, model: BasketPricingNet, X_test: np.ndarray, 
                             y_test: np.ndarray, dates_test: np.ndarray, fold_num: int) -> Dict:
-        """Run enhanced backtest on fold test data."""
         logger.info(f"Running backtest for fold {fold_num} ({len(X_test)} samples)...")
         
         engine = EnhancedBacktestEngine(transaction_costs=self.transaction_costs)
         
-        # Create mock data dict for backtest engine
         data = {
             'model': model,
             'X_test': X_test,
             'y_test': y_test,
             'dates_test': dates_test,
-            'scaler': None  # Not used in predictions
+            'scaler': None
         }
         
         data = engine.generate_predictions(data)
@@ -251,7 +234,7 @@ class WalkForwardValidator:
         for fold in folds:
             fold_num = fold['fold_num']
             
-            # Extract fold data
+            
             X_train = X_full[fold['train_start']:fold['train_end']]
             y_train = y_full[fold['train_start']:fold['train_end']]
             
@@ -259,13 +242,13 @@ class WalkForwardValidator:
             y_test = y_full[fold['test_start']:fold['test_end']]
             dates_test = dates_full[fold['test_start']:fold['test_end']]
             
-            # Train model on fold
+            
             model = self.train_model_on_fold(X_train, y_train, fold_num)
             
-            # Run backtest on fold
+            
             result = self.run_backtest_on_fold(model, X_test, y_test, dates_test, fold_num)
             
-            # Store fold info with results
+            
             result['fold_info'] = fold
             fold_results.append(result)
         
@@ -273,7 +256,7 @@ class WalkForwardValidator:
         return fold_results
     
     def summarize_results(self) -> pd.DataFrame:
-        """Create summary table comparing all folds."""
+        
         logger.info(f"\n{'='*70}")
         logger.info("WALK-FORWARD VALIDATION SUMMARY")
         logger.info(f"{'='*70}\n")
@@ -298,7 +281,7 @@ class WalkForwardValidator:
         
         summary_df = pd.DataFrame(summary)
         
-        # Add aggregate row
+        
         agg_row = {
             'Fold': 'MEAN',
             'Test Period': 'All folds',
@@ -318,16 +301,16 @@ class WalkForwardValidator:
         return summary_df
     
     def save_results(self, summary_df: pd.DataFrame, output_dir: str = 'output/backtest/'):
-        """Save walk-forward results to files."""
+        
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)
         
-        # Save summary table
+        
         summary_csv = output_path / 'walk_forward_results.csv'
         summary_df.to_csv(summary_csv, index=False)
         logger.info(f"Saved summary: {summary_csv}")
         
-        # Save detailed results for each fold
+        
         detailed = {
             'threshold': self.test_threshold,
             'n_folds': len(self.fold_results),
@@ -357,12 +340,12 @@ class WalkForwardValidator:
         }
     
     def compare_to_original(self, original_results: Dict) -> pd.DataFrame:
-        """Compare walk-forward results to original single-test-fold results."""
+        
         logger.info(f"\n{'='*70}")
         logger.info("COMPARISON: ORIGINAL vs WALK-FORWARD")
         logger.info(f"{'='*70}\n")
         
-        # Get walk-forward mean
+        
         wf_sharpe = np.mean([r['metrics']['sharpe_ratio'] for r in self.fold_results])
         wf_sharpe_std = np.std([r['metrics']['sharpe_ratio'] for r in self.fold_results])
         wf_win_rate = np.mean([r['metrics']['win_rate'] for r in self.fold_results])
@@ -400,10 +383,10 @@ class WalkForwardValidator:
 
 
 def main():
-    """Run walk-forward validation and save results."""
+    
     import json
     
-    # Load original backtest results
+    
     original_metrics_path = Path('output/backtest/regime_aware_metrics.json')
     if not original_metrics_path.exists():
         logger.error(f"Original metrics not found at {original_metrics_path}")
@@ -415,7 +398,6 @@ def main():
     
     logger.info(f"Original backtest Sharpe: {original_results['sharpe_ratio']:.4f}")
     
-    # Run walk-forward validation
     validator = WalkForwardValidator(test_threshold=2.0)
     dataset = validator.load_full_dataset()
     
@@ -425,7 +407,6 @@ def main():
     save_paths = validator.save_results(summary_df)
     logger.info(f"\nResults saved to: {save_paths}")
     
-    # Compare to original
     comparison = validator.compare_to_original(original_results)
     comparison.to_csv('output/backtest/walk_forward_comparison.csv', index=False)
     

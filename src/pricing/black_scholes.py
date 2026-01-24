@@ -1,29 +1,23 @@
-"""Black-Scholes option pricing."""
-
 import numpy as np
 from scipy.stats import norm
 
 
 class BlackScholesOptionPricer:
-    """Price European vanilla options."""
     
     @staticmethod
     def d1(S, K, T, r, sigma, q=0.0):
-        """d1 in Black-Scholes formula."""
         if T <= 0 or sigma <= 0:
             return np.nan
         return (np.log(S/K) + (r - q + 0.5*sigma**2)*T) / (sigma*np.sqrt(T))
     
     @staticmethod
     def d2(d1, T, sigma):
-        """d2 in Black-Scholes formula."""
         if T <= 0 or sigma <= 0:
             return np.nan
         return d1 - sigma * np.sqrt(T)
     
     @staticmethod
     def call_price(S, K, T, r, sigma, q=0.0):
-        """European call price."""
         d1 = BlackScholesOptionPricer.d1(S, K, T, r, sigma, q)
         d2 = BlackScholesOptionPricer.d2(d1, T, sigma)
         call = S * np.exp(-q*T) * norm.cdf(d1) - K * np.exp(-r*T) * norm.cdf(d2)
@@ -31,7 +25,6 @@ class BlackScholesOptionPricer:
     
     @staticmethod
     def put_price(S, K, T, r, sigma, q=0.0):
-        """European put price (via put-call parity)."""
         call = BlackScholesOptionPricer.call_price(S, K, T, r, sigma, q)
         forward = S * np.exp((r - q) * T)
         discount = np.exp(-r * T)
@@ -41,24 +34,6 @@ class BlackScholesOptionPricer:
     @staticmethod
     def implied_vol_from_price(price, S, K, T, r, option_type='call', q=0.0, 
                                initial_guess=0.2, max_iterations=100, tol=1e-6):
-        """
-        Estimate implied volatility using Newton-Raphson method.
-        
-        Args:
-            price: Market option price
-            S: Spot price
-            K: Strike price
-            T: Time to maturity
-            r: Risk-free rate
-            option_type: 'call' or 'put'
-            q: Dividend yield
-            initial_guess: Starting sigma
-            max_iterations: Max Newton-Raphson iterations
-            tol: Convergence tolerance
-        
-        Returns:
-            Implied volatility (sigma)
-        """
         sigma = initial_guess
         
         for _ in range(max_iterations):
@@ -71,7 +46,7 @@ class BlackScholesOptionPricer:
             if abs(diff) < tol:
                 return sigma
             
-            # Vega (derivative of price w.r.t. sigma)
+            #vega
             d1 = BlackScholesOptionPricer.d1(S, K, T, r, sigma, q)
             vega = S * np.exp(-q*T) * norm.pdf(d1) * np.sqrt(T)
             
@@ -79,6 +54,6 @@ class BlackScholesOptionPricer:
                 break
             
             sigma = sigma - diff / vega
-            sigma = max(0.001, min(2.0, sigma))  # Keep in reasonable bounds
+            sigma = max(0.001, min(2.0, sigma))
         
         return sigma

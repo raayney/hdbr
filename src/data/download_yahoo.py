@@ -1,4 +1,3 @@
-"""Download historical OHLCV data from Yahoo Finance."""
 import os
 import yfinance as yf
 import pandas as pd
@@ -11,26 +10,24 @@ logger = logging.getLogger(__name__)
 
 
 class YahooDataDownloader:
-    """Download and cache Yahoo Finance data."""
     
     def __init__(self, tickers, start_date, end_date, output_dir):
         self.tickers = tickers
         self.start_date = start_date
         self.end_date = end_date
 
-        # Robust directory creation
         self.output_dir = Path(output_dir)
         try:
             os.makedirs(self.output_dir, exist_ok=True)
         except FileExistsError:
-            # If it already exists as a directory, ignore
+            
             if not self.output_dir.is_dir():
                 raise
 
         self.data = {}
     
     def download(self):
-        """Download all tickers."""
+        
         logger.info(f"Downloading {len(self.tickers)} tickers...")
         logger.info(f"Date range: {self.start_date} to {self.end_date}")
         
@@ -41,13 +38,13 @@ class YahooDataDownloader:
                     ticker,
                     start=self.start_date,
                     end=self.end_date,
-                    progress=False,   # keep or remove as you like
-                    auto_adjust=False # explicit, safe default
+                    progress=False,   
+                    auto_adjust=False 
                 )
 
                 
                 if df.shape[0] > 0:
-                    # Standardize columns
+                    
                     df.columns = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume']
                     df.index.name = 'Date'
                     self.data[ticker] = df
@@ -62,7 +59,7 @@ class YahooDataDownloader:
         return self.data
     
     def save(self, data=None):
-        """Save to parquet files."""
+        
         if data is None:
             data = self.data
         
@@ -73,7 +70,7 @@ class YahooDataDownloader:
             logger.info(f"Saved {ticker} → {path}")
     
     def load_all(self):
-        """Load all saved parquet files."""
+        
         logger.info(f"Loading from {self.output_dir}...")
         for f in self.output_dir.glob("*.parquet"):
             try:
@@ -84,7 +81,7 @@ class YahooDataDownloader:
         return self.data
     
     def align_dates(self):
-        """Align all datasets to common trading dates."""
+        
         logger.info("Aligning dates...")
         dfs = [df[['Adj Close']].rename(columns={'Adj Close': ticker}) 
                for ticker, df in self.data.items()]

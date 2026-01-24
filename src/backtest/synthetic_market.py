@@ -67,7 +67,7 @@ class SyntheticMarketPriceGenerator:
         return self.ir_spread
     
     def get_config(self):
-        """Return current configuration."""
+        
         return {
             'implied_realized_spread_pct': self.ir_spread,
             'bid_ask_bps': self.bid_ask_bps

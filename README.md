@@ -1,6 +1,10 @@
 # High-Dimensional Basket Dispersion Trading via Model-Free Deep Learning
 
-[![Sharpe](https://img.shields.io/badge/Walk--Forward%20Sharpe-0.62-blue)](https://github.com/) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-orange)](https://pytorch.org/)
+[![Sharpe](https://img.shields.io/badge/Walk--Forward%20Sharpe-0.62-blue)](https://github.com/) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-orange)](https://pytorch.org/)[![Status](https://img.shields.io/badge/Project-Complete-brightgreen)](https://github.com/)
+
+## Project Status
+
+Phase 2 completed with backtesting validated. Archived as of Jan 2026; walk-forward Sharpe 0.62. Code, notebooks, dashboard fully functional.
 
 This is a personal research prototype: feedforward NNs for data-driven pricing of high-dim basket dispersion (basket var minus index var) on EURO STOXX 50 stocks from market snapshots. [file:6]
 
@@ -51,7 +55,7 @@ Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712. [web:0][file:3][
 
 ## Setup
 
-1. `pip install -r requirements.txt`
+1. Create Conda `env`:
 2. Jupyter: Run 00→05.
 3. `streamlit run dashboard.py` (interactive views). [file:6]
 

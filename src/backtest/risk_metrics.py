@@ -7,7 +7,6 @@ class RiskMetricsCalculator:
         self.periods_per_year = periods_per_year
     
     def compute_win_loss_ratio(self, pnl_series):
-        """Win/loss metrics."""
         pnl_series = np.array(pnl_series)
         wins = pnl_series[pnl_series > 0]
         losses = pnl_series[pnl_series < 0]
@@ -27,14 +26,12 @@ class RiskMetricsCalculator:
         }
     
     def compute_profit_factor(self, pnl_series):
-        """Total wins / total losses."""
         pnl_series = np.array(pnl_series)
         total_wins = np.sum(pnl_series[pnl_series > 0])
         total_losses = abs(np.sum(pnl_series[pnl_series < 0]))
         return total_wins / total_losses if total_losses > 0 else np.inf
     
     def compute_max_drawdown(self, pnl_series):
-        """Max drawdown from cumulative P&L."""
         pnl_series = np.array(pnl_series)
         cumulative = np.cumsum(pnl_series)
         running_max = np.maximum.accumulate(cumulative)
@@ -42,14 +39,12 @@ class RiskMetricsCalculator:
         return np.min(drawdown)
     
     def compute_sharpe_ratio(self, pnl_series, periods=1):
-        """Sharpe ratio (scaled by periods)."""
         pnl_series = np.array(pnl_series)
         mean_ret = np.mean(pnl_series)
         std_ret = np.std(pnl_series)
         return (mean_ret / std_ret * np.sqrt(periods)) if std_ret > 0 else 0
     
     def compute_sortino_ratio(self, pnl_series, periods=1):
-        """Sortino ratio (downside vol only)."""
         pnl_series = np.array(pnl_series)
         mean_ret = np.mean(pnl_series)
         downside = pnl_series[pnl_series < 0]
@@ -57,13 +52,11 @@ class RiskMetricsCalculator:
         return (mean_ret / downside_vol * np.sqrt(periods)) if downside_vol > 0 else np.inf
     
     def compute_calmar_ratio(self, pnl_series, periods=1):
-        """Annual return / |max DD|."""
         annual_ret = np.mean(pnl_series) * periods
         max_dd = self.compute_max_drawdown(pnl_series)
         return annual_ret / abs(max_dd) if max_dd < 0 else np.inf
     
     def compute_all_metrics(self, pnl_series, is_trade_pnls=True):
-        """Compute ALL metrics - FIXED for trade PnLs."""
         pnl_series = np.array(pnl_series)
         
         metrics = {
@@ -76,12 +69,10 @@ class RiskMetricsCalculator:
             'max_pnl': np.max(pnl_series),
         }
         
-        # Win/loss + profit factor
         wl = self.compute_win_loss_ratio(pnl_series)
         metrics.update(wl)
         metrics['profit_factor'] = self.compute_profit_factor(pnl_series)
         
-        # Risk-adjusted: 1 period per trade (not 252)
         periods = 1 if is_trade_pnls else self.periods_per_year
         
         metrics['sharpe_ratio'] = self.compute_sharpe_ratio(pnl_series, periods)

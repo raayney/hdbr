@@ -1,5 +1,3 @@
-"""Master data pipeline orchestrator."""
-
 import pandas as pd
 import numpy as np
 from pathlib import Path
@@ -27,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 class DataPipeline:
-    """Complete Step 1 data pipeline."""
+    
     
     def __init__(self):
         self.tickers = [SX5E_TICKER] + TOP_20_CONSTITUENTS
@@ -41,33 +39,33 @@ class DataPipeline:
         self.scaler = None
     
     def run(self):
-        """Execute full pipeline."""
+        
         print("\n" + "="*70)
         print("STEP 1: DATA PIPELINE")
         print("="*70 + "\n")
         
         try:
-            # Step 1: Download
+            
             print("[1/6] Downloading prices from Yahoo Finance...")
             self._download_prices()
             
-            # Step 2: Preprocess
+            
             print("\n[2/6] Preprocessing & computing statistics...")
             self._preprocess()
             
-            # Step 3: Generate IV surfaces
+            
             print("\n[3/6] Generating synthetic IV surfaces...")
             self._generate_iv_surfaces()
             
-            # Step 4: Build features
+            
             print("\n[4/6] Building feature vectors...")
             self._build_features()
             
-            # Step 5: Standardize & split
+            
             print("\n[5/6] Standardizing and splitting data...")
             self._standardize_and_save()
             
-            # Step 6: Validate
+            
             print("\n[6/6] Validating outputs...")
             self._validate()
             
@@ -80,7 +78,7 @@ class DataPipeline:
             raise
     
     def _download_prices(self):
-        """Download from Yahoo Finance."""
+        
         downloader = YahooDataDownloader(
             tickers=self.tickers,
             start_date=BACKTEST_START,
@@ -90,7 +88,7 @@ class DataPipeline:
         self.raw_prices = downloader.download()
         downloader.save()
 
-    # Keep only tickers that actually downloaded
+    
         successful_tickers = sorted(list(self.raw_prices.keys()))
         print(f"\nSuccessfully downloaded {len(successful_tickers)} tickers:")
         for t in successful_tickers:
@@ -99,14 +97,14 @@ class DataPipeline:
 
     
     def _preprocess(self):
-        """Compute returns, variance, correlations."""
+        
         preprocessor = PricePreprocessor(self.raw_prices)
         self.processed_prices = preprocessor.align_and_merge()
         self.returns = preprocessor.compute_log_returns(self.processed_prices)
         
         rolling_var = preprocessor.compute_rolling_variance(self.returns, window=REALIZED_VOL_WINDOW)
         self.rolling_vol = preprocessor.compute_rolling_vol(rolling_var, annualize=True)
-        # NEW: Compute regime features
+        
         logger.info("Computing regime features...")
         self.realized_correlation = self.preprocessor.compute_realized_correlation_scalar(
             self.returns, window=60
@@ -118,7 +116,7 @@ class DataPipeline:
             self.rolling_vol, window=252
         )
 
-        # Save for inspection
+        
         regime_dir = Path(DATADIR) / "processed"
         regime_dir.mkdir(parents=True, exist_ok=True)
         self.realized_correlation.to_csv(regime_dir / "realized_correlation.csv")
@@ -127,14 +125,14 @@ class DataPipeline:
 
         correlations = preprocessor.compute_correlation_matrix(self.returns, window=60)
         
-        # Save
+        
         Path(f"{DATA_DIR}/processed").mkdir(parents=True, exist_ok=True)
         self.processed_prices.to_parquet(f"{DATA_DIR}/processed/prices.parquet")
         self.returns.to_parquet(f"{DATA_DIR}/processed/returns.parquet")
         self.rolling_vol.to_parquet(f"{DATA_DIR}/processed/rolling_vol.parquet")
     
     def _generate_iv_surfaces(self):
-        """Generate synthetic IV curves."""
+        
         generator = SyntheticIVSurfaceGenerator(
             moneyness_grid=MONEYNESS_GRID,
             alpha=SKEW_PARAM_ALPHA,
@@ -155,7 +153,7 @@ class DataPipeline:
                 logger.info(f"  {i+1} dates processed...")
     
     def _build_features(self):
-        """Build 274-dimensional feature vectors."""
+        
         builder = FeatureBuilder(
             tickers=self.tickers,
             moneyness_grid=MONEYNESS_GRID,
@@ -166,18 +164,18 @@ class DataPipeline:
         dates_list = []
         
         for i, date in enumerate(self.processed_prices.index):
-            # Set regime features for this date
+            
             if date in self.realized_correlation.index:
                 builder.realized_correlation = self.realized_correlation[date]
                 builder.realized_skewness = self.realized_skewness[date]
                 builder.volatility_percentile = self.volatility_percentile[date]
             else:
-                # First 60/252 dates won't have regime features, use defaults
+                
                 builder.realized_correlation = 0.0
                 builder.realized_skewness = 0.0
                 builder.volatility_percentile = 50.0
 
-            # Then call buildfeaturevector as normal
+            
             X = builder.build_feature_vector(pricesdict, ivsurfacesdict, ratesdict, yieldsdict)
 
             features_list.append(X)
@@ -191,10 +189,10 @@ class DataPipeline:
         logger.info(f"Built {len(self.features)} feature vectors")
     
     def _standardize_and_save(self):
-        """Standardize and split into train/val/test."""
+        
         dates_pd = pd.to_datetime(self.dates)
         
-        # Time-based splits
+        
         train_mask = dates_pd <= pd.to_datetime(TRAIN_END)
         val_mask = (dates_pd > pd.to_datetime(TRAIN_END)) & (dates_pd <= pd.to_datetime(VAL_END))
         test_mask = dates_pd > pd.to_datetime(VAL_END)
@@ -203,19 +201,19 @@ class DataPipeline:
         X_val = self.features[val_mask]
         X_test = self.features[test_mask]
         
-        # Fit scaler on training set ONLY
+        
         self.scaler = FeatureScaler(epsilon=SCALER_EPSILON)
         X_train_scaled = self.scaler.fit_transform(X_train)
         X_val_scaled = self.scaler.transform(X_val)
         X_test_scaled = self.scaler.transform(X_test)
         
-        # Save
+        
         Path(f"{DATA_DIR}/features").mkdir(parents=True, exist_ok=True)
         np.save(f"{DATADIR}/features/X_train_regime.npy", Xtrainscaled)
         np.save(f"{DATADIR}/features/X_val_regime.npy", Xvalscaled)
         np.save(f"{DATADIR}/features/X_test_regime.npy", Xtestscaled)
         
-        # Save dates
+        
         np.save(f"{DATA_DIR}/features/dates_train.npy", 
                np.array([str(d.date()) for d in dates_pd[train_mask]]))
         np.save(f"{DATA_DIR}/features/dates_val.npy", 
@@ -223,7 +221,7 @@ class DataPipeline:
         np.save(f"{DATA_DIR}/features/dates_test.npy", 
                np.array([str(d.date()) for d in dates_pd[test_mask]]))
         
-        # Save scaler
+        
         with open(f"{DATA_DIR}/features/scaler.pkl", "wb") as f:
             pickle.dump(self.scaler, open(f"{DATADIR}/features/scaler_regime.pkl", "wb"))
         
@@ -233,17 +231,17 @@ class DataPipeline:
         print(f"  Test:       {X_test_scaled.shape}")
     
     def _validate(self):
-        """Validate outputs."""
+        
         X_train = np.load(f"{DATA_DIR}/features/X_train.npy")
         X_val = np.load(f"{DATA_DIR}/features/X_val.npy")
         X_test = np.load(f"{DATA_DIR}/features/X_test.npy")
 
-        # Check shapes
+        
         assert X_train.shape[1] == FEATURE_DIM, "Train feature dim mismatch"
         assert X_val.shape[1] == FEATURE_DIM, "Val feature dim mismatch"
         assert X_test.shape[1] == FEATURE_DIM, "Test feature dim mismatch"
 
-        # Check standardization (soft checks with warnings)
+        
         max_abs_mean = np.abs(X_train.mean(axis=0)).max()
         max_std_err = np.abs(X_train.std(axis=0) - 1.0).max()
         print(f"Max abs mean after scaling: {max_abs_mean:.4f}")
@@ -254,7 +252,7 @@ class DataPipeline:
         if max_std_err >= 0.05:
             print(f"WARNING: Train std not perfectly 1 (max |std-1| = {max_std_err:.4f})")
 
-        # Check no NaNs (hard failures)
+        
         assert not np.isnan(X_train).any(), "NaNs in train"
         assert not np.isnan(X_val).any(), "NaNs in val"
         assert not np.isnan(X_test).any(), "NaNs in test"

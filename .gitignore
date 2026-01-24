@@ -1,16 +1,21 @@
-# Python
+# Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
-*.pyo
+*$py.class
+*.so
+.Python
+pip-wheel-metadata/
 
-# Environments
-.venv/
-.env/
+# Conda/Anaconda
+anaconda_projects/
+environment.yml
 
-# Data and models
-data/
-models/
 logs/
+*.log
 
-# Jupyter
-.ipynb_checkpoints/
+*.npy
+*.pkl
+*.parquet
+*.csv
+
+setup.py

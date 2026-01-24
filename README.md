@@ -1,4 +1,4 @@
-# High-Dimensional Basket Dispersion Trading via Model-Free Deep Learning
+# High-Dimensional Basket Dispersion Trading: Model-Free Deep Learning
 
 [![Sharpe](https://img.shields.io/badge/Walk--Forward%20Sharpe-0.62-blue)](https://github.com/) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-orange)](https://pytorch.org/)[![Status](https://img.shields.io/badge/Project-Complete-brightgreen)](https://github.com/)
 

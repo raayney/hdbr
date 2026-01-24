@@ -2,7 +2,7 @@
 
 [![Sharpe](https://img.shields.io/badge/Walk--Forward%20Sharpe-0.62-blue)](https://github.com/) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-orange)](https://pytorch.org/)
 
-Personal research prototype: feedforward NNs for data-driven pricing of high-dim basket dispersion (basket var minus index var) on EURO STOXX 50 stocks from market snapshots. [file:6]
+This is a personal research prototype: feedforward NNs for data-driven pricing of high-dim basket dispersion (basket var minus index var) on EURO STOXX 50 stocks from market snapshots. [file:6]
 
 Uses 274D features (spots/forwards, synthetic IV surfaces/skew/term, 21×21 corrs, RV) → NN → fair value → signals (|pred - mkt| > 2σ). Walk-forward Sharpe 0.62 (462 trades, 2023-2025, 35bps RT costs). [file:6]
 

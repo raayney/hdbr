@@ -1,10 +1,7 @@
-"""BasketPricingNet: Neural network for dispersion pricing."""
-
 import torch
 import torch.nn as nn
 
 class BasketPricingNet(nn.Module):
-    """Feed-forward neural network for pricing variance dispersion."""
     
     def __init__(self, input_dim: int, hidden_dims=None, dropout: float = 0.2):
         super().__init__()
@@ -23,7 +20,7 @@ class BasketPricingNet(nn.Module):
             prev_dim = h
         
         self.feature_extractor = nn.Sequential(*layers)
-        self.output_layer = nn.Linear(prev_dim, 1)  # scalar fair value
+        self.output_layer = nn.Linear(prev_dim, 1) 
     
     def forward(self, x):
         h = self.feature_extractor(x)

@@ -42,9 +42,9 @@ Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712. [web:0][file:3][
 
 ## Notebooks
 
-- **00_monte_carlo_synthetic_options.ipynb
-- **01_framework.ipynb: Model-free pricing framework & data pipeline. [file:4]
-- **02_feature_architecture.md**: 274-dimensional feature engineering & signal strength. [file:5]
+- **00_monte_carlo_synthetic_options.ipynb**
+- **01_framework.ipynb**: Model-free pricing framework & data pipeline. [file:4]
+- **02_feature_architecture.ipynb**: 274-dimensional feature engineering & signal strength. [file:5]
 - **03_neural_network_training_final.ipynb**: NN training & test evaluation (test R²=0.9712). [file:3]
 - **04_signal_generation.ipynb**: Signal generation & threshold optimisation. [file:1]
 - **05_walk_forward_analysis.ipynb**: Regime-aware robustness & position sizing. [file:2]

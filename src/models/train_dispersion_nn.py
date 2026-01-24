@@ -1,5 +1,3 @@
-"""Regime-aware neural network training for dispersion pricing."""
-
 import pandas as pd
 import numpy as np
 import torch
@@ -16,7 +14,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 def compute_realized_volatility(returns_df, date, window=60):
-    """Compute realized volatility for a date from returns."""
     try:
         if date not in returns_df.index:
             return np.nan
@@ -34,7 +31,6 @@ def compute_realized_volatility(returns_df, date, window=60):
         return np.nan
 
 def categorize_regime(realized_vol, vol_percentiles):
-    """Categorize as low/mid/high based on percentiles."""
     if realized_vol < vol_percentiles[33]:
         return 'low'
     elif realized_vol < vol_percentiles[67]:
@@ -44,19 +40,10 @@ def categorize_regime(realized_vol, vol_percentiles):
 
 def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test, 
                        dates_train, dates_val, dates_test, returns_df):
-    """
-    Train one model per volatility regime.
     
-    Args:
-        X_train, X_val, X_test: Feature arrays
-        y_train, y_val, y_test: Label arrays
-        dates_train, dates_val, dates_test: Date arrays
-        returns_df: Returns DataFrame for vol calculation
-    """
     
     logger.info("Computing realized volatility for all dates...")
     
-    # Compute vol for each date
     all_dates = np.concatenate([dates_train, dates_val, dates_test])
     all_X = np.vstack([X_train, X_val, X_test])
     all_y = np.concatenate([y_train, y_val, y_test])
@@ -68,18 +55,16 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
     
     vols = np.array(vols)
     
-    # Percentiles for regime split
     valid_vols = vols[~np.isnan(vols)]
     vol_p33 = np.percentile(valid_vols, 33)
     vol_p67 = np.percentile(valid_vols, 67)
     
     logger.info(f"Volatility percentiles: 33%={vol_p33:.4f}, 67%={vol_p67:.4f}")
     
-    # Assign regimes
     regimes = []
     for i, vol in enumerate(vols):
         if np.isnan(vol):
-            regime = 'mid'  # Default if vol unavailable
+            regime = 'mid'  
         elif vol < vol_p33:
             regime = 'low'
         elif vol < vol_p67:
@@ -93,14 +78,12 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
     logger.info(f"Regime distribution: low={np.sum(regimes=='low')}, "
                 f"mid={np.sum(regimes=='mid')}, high={np.sum(regimes=='high')}")
     
-    # Train ONE model on all regimes (let it learn the mapping)
     logger.info("\nTraining single model on all regimes...")
     
     model = BasketPricingNet(input_dim=274, hidden_dims=[256, 128, 64], dropout=0.2)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     criterion = nn.MSELoss()
     
-    # Data loaders
     train_dataset = TensorDataset(
         torch.tensor(all_X[:len(X_train)], dtype=torch.float32),
         torch.tensor(all_y[:len(y_train)], dtype=torch.float32)
@@ -120,7 +103,6 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
     logger.info("Starting training loop...")
     
     for epoch in range(1, 201):
-        # Training
         model.train()
         train_loss = 0
         for X_batch, y_batch in train_loader:
@@ -133,7 +115,6 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
         
         train_loss /= len(train_dataset)
         
-        # Validation
         model.eval()
         val_loss = 0
         with torch.no_grad():
@@ -147,11 +128,9 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
         if (epoch % 20 == 0) or (epoch == 1):
             logger.info(f"Epoch {epoch:3d} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         
-        # Early stopping
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             patience_counter = 0
-            # Create output directory if it doesn't exist
             Path(f"{DATA_DIR}/../models").mkdir(parents=True, exist_ok=True)
             torch.save(model.state_dict(), f"{DATA_DIR}/../models/best_model_regime_aware.pt")
         else:
@@ -160,7 +139,6 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
                 logger.info(f"Early stopping at epoch {epoch}")
                 break
     
-    # Evaluate on test set by regime
     logger.info("\n" + "="*60)
     logger.info("TEST SET PERFORMANCE BY REGIME")
     logger.info("="*60)
@@ -191,7 +169,6 @@ def train_regime_aware(X_train, X_val, X_test, y_train, y_val, y_test,
 if __name__ == "__main__":
     import pandas as pd
     
-    # Load data
     logger.info("Loading data...")
     X_train = np.load(f"{DATA_DIR}/features/X_train.npy")
     X_val = np.load(f"{DATA_DIR}/features/X_val.npy")
@@ -205,7 +182,6 @@ if __name__ == "__main__":
     dates_val = np.load(f"{DATA_DIR}/features/dates_val.npy", allow_pickle=True)
     dates_test = np.load(f"{DATA_DIR}/features/dates_test.npy", allow_pickle=True)
     
-    # Load returns for vol calculation
     returns_df = pd.read_parquet(f"{DATA_DIR}/processed/returns.parquet")
     if not isinstance(returns_df.index, pd.DatetimeIndex):
         returns_df.index = pd.to_datetime(returns_df.index)

@@ -9,38 +9,27 @@ logger = logging.getLogger(__name__)
 
 
 class PositionSizer:
-    """Add Kelly Criterion + vol-targeting to backtest trades."""
     
     def __init__(self, kelly_fraction=0.25, vol_target=0.15):
-        """
-        Args:
-            kelly_fraction: Conservative Kelly (0.25 = 25% of Kelly optimal)
-            vol_target: Target annual volatility (0.15 = 15%)
-        """
+        
         self.kelly_fraction = kelly_fraction
         self.vol_target = vol_target
         logger.info(f"PositionSizer: Kelly={kelly_fraction}, VolTarget={vol_target}")
     
     def kelly_position_size(self, edge: float, win_rate: float) -> float:
-        """Kelly Criterion: position = (win_rate - loss_rate) / 1.
         
-        Simplified: position = edge (how mispriced) * kelly_fraction
-        """
         position = self.kelly_fraction * edge
         return np.clip(position, 0.1, 3.0)
     
     def vol_target_position_size(self, current_vol: float) -> float:
-        """Vol-targeting: scale position inversely to volatility.
         
-        If vol spikes to 30%, reduce position by half.
-        """
         if current_vol == 0:
             return 1.0
         position = self.vol_target / current_vol
         return np.clip(position, 0.1, 2.0)
     
     def add_position_sizing(self, trades_df: pd.DataFrame) -> pd.DataFrame:
-        """Add position sizing columns to trades."""
+    
         trades_df = trades_df.copy()
         
         trades_df['signal_strength'] = np.abs(trades_df['signal'])
@@ -71,7 +60,6 @@ class PositionSizer:
 
 
 def main():
-    """Load backtest results, add position sizing, save."""
     trades_path = Path('output/backtest/regime_aware_trades.csv')
     
     if not trades_path.exists():

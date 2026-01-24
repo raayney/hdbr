@@ -1,0 +1,70 @@
+{
+  "threshold": 2.0,
+  "n_folds": 2,
+  "folds": [
+    {
+      "fold_num": 1,
+      "test_period": {
+        "start": "2023-03-09",
+        "end": "2024-02-21"
+      },
+      "metrics": {
+        "num_trades": 231,
+        "total_pnl": 345.75066134760164,
+        "mean_pnl": 1.4967561097298772,
+        "median_pnl": 0.0,
+        "std_pnl": 2.878447249349304,
+        "min_pnl": -9.481816475814963,
+        "max_pnl": 12.000667028771979,
+        "num_wins": 79,
+        "num_losses": 16,
+        "avg_win": 4.7648938845032935,
+        "avg_loss": -1.9172472205099134,
+        "win_rate": 0.341991341991342,
+        "win_loss_ratio": 2.4852788067863343,
+        "profit_factor": 12.271064108507526,
+        "sharpe_ratio": 0.5199873334723195,
+        "sortino_ratio": 0.6678890954489944,
+        "calmar_ratio": 11.035251455740328,
+        "max_drawdown": -0.13563407374385594,
+        "num_buys": 77,
+        "num_sells": 18,
+        "pnl_before_costs": 374.60507345506926,
+        "pnl_after_costs": 345.75066134760164,
+        "total_costs": 28.85441210746765
+      }
+    },
+    {
+      "fold_num": 2,
+      "test_period": {
+        "start": "2024-02-22",
+        "end": "2025-02-11"
+      },
+      "metrics": {
+        "num_trades": 231,
+        "total_pnl": 631.6401413343477,
+        "mean_pnl": 2.7343729062092974,
+        "median_pnl": 0.5253782389399922,
+        "std_pnl": 3.8065078318968286,
+        "min_pnl": -6.0189323657780776,
+        "max_pnl": 18.848661091051834,
+        "num_wins": 119,
+        "num_losses": 21,
+        "avg_win": 5.611415893934936,
+        "avg_loss": -1.7199214306623598,
+        "win_rate": 0.5151515151515151,
+        "win_loss_ratio": 3.2626001362015247,
+        "profit_factor": 18.488067438475305,
+        "sharpe_ratio": 0.718341594701705,
+        "sortino_ratio": 1.648026899239245,
+        "calmar_ratio": 134.26781657366237,
+        "max_drawdown": -0.020365065702168162,
+        "num_buys": 126,
+        "num_sells": 14,
+        "pnl_before_costs": 676.2151487438011,
+        "pnl_after_costs": 631.6401413343477,
+        "total_costs": 44.57500740945339
+      }
+    }
+  ]
+}

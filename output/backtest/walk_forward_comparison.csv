@@ -1,0 +1,6 @@
+Metric,Original (Single Test),Walk-Forward (Multiple Folds),Interpretation
+Sharpe Ratio,0.24161586171278157,0.6192,Stable ✓
+Sharpe Std Dev,N/A,0.0992,0.0992
+Win Rate,0.06375838926174497,42.86%,Consistent?
+Total PnL,146.7072986491176,977.39,Aggregate
+Num Folds,1,2,Robustness

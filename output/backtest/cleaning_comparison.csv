@@ -1,0 +1,9 @@
+Metric,Original (with HOLDs),Cleaned (BUY-only)
+Num Trades,298,19
+Win Rate,6.38%,100.00%
+Sharpe Ratio,0.2416,2.5325
+Sortino Ratio,inf,inf
+Max Drawdown,0.0000,0.0000
+Calmar Ratio,inf,inf
+P&L Post-Costs,$146.71,$146.71
+Mean P&L,$0.4923,$7.7214

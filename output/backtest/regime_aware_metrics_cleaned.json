@@ -1,0 +1,21 @@
+{
+  "num_trades": 19.0,
+  "total_pnl": 146.7072986491176,
+  "mean_pnl": 7.721436771006189,
+  "median_pnl": 6.933325311972491,
+  "std_pnl": 3.0489299334007582,
+  "min_pnl": 3.753027958675365,
+  "max_pnl": 14.342216930019172,
+  "num_wins": 19.0,
+  "num_losses": 0.0,
+  "avg_win": 7.721436771006189,
+  "avg_loss": 0.0,
+  "win_rate": 1.0,
+  "win_loss_ratio": Infinity,
+  "profit_factor": Infinity,
+  "sharpe_ratio": 2.532507122062246,
+  "sortino_ratio": Infinity,
+  "calmar_ratio": Infinity,
+  "max_drawdown": 0.0,
+  "pnl_after_costs": 146.7072986491176
+}

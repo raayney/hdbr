@@ -1,38 +1,36 @@
 # High-Dimensional Basket Dispersion Trading: Model-Free Deep Learning
 
-[![Sharpe](https://img.shields.io/badge/Walk--Forward%20Sharpe-0.62-blue)](https://github.com/) [![PyTorch](https://img.shields.io/badge/PyTorch-2.0.1-orange)](https://pytorch.org/)[![Status](https://img.shields.io/badge/Project-Complete-brightgreen)](https://github.com/)
+This is a personal research prototype: feedforward NNs for data-driven pricing of high-dim basket dispersion (basket var minus index var) on EURO STOXX 50 stocks from market snapshots.
 
-This is a personal research prototype: feedforward NNs for data-driven pricing of high-dim basket dispersion (basket var minus index var) on EURO STOXX 50 stocks from market snapshots. [file:6]
-
-Uses 274D features (spots/forwards, synthetic IV surfaces/skew/term, 21×21 corrs, RV) → NN → fair value → signals (|pred - mkt| > 2σ). Walk-forward Sharpe 0.62 (462 trades, 2023-2025, 35bps RT costs). [file:6]
+Uses 274D features (spots/forwards, synthetic IV surfaces/skew/term, 21×21 corrs, RV) → NN → fair value → signals (|pred - mkt| > 2σ). Walk-forward Sharpe 0.62 (462 trades, 2023-2025, 35bps RT costs).
 
 ## Project Status
 
-Phase 2 completed with backtesting validated. Complete as of Jan 2026; walk-forward Sharpe 0.62. Analysis notebooks, backtests; research-focused, not production-ready. [file:6]
+Phase 2 completed with backtesting validated. Complete as of Jan 2026; walk-forward Sharpe 0.62. Analysis notebooks, backtests; research-focused, not production-ready.
 
 ## Theoretical Foundation
 
-Data-driven NN pricing without model params, per Neufeld & Sester (2021). [web:0]
+Data-driven NN pricing without model params, per Neufeld & Sester (2021). 
 
-**Theorem 11.2 (Continuity of Hedging Prices)**: For continuous parametric payoff families $`\theta \mapsto \Phi_\theta`$ on compact $`K_1`$, super/sub-hedging prices $`(D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)`$, $`D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)`$ continuous w.r.t. market data $`(K, \pi, S_0, \theta)`$ in suitable topology. [web:0]
+**Theorem 11.2 (Continuity of Hedging Prices)**: For continuous parametric payoff families $`\theta \mapsto \Phi_\theta`$ on compact $`K_1`$, super/sub-hedging prices $`(D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)`$, $`D^{B,\bar{B}}(K,\pi,S_0)(\Phi_\theta)`$ continuous w.r.t. market data $`(K, \pi, S_0, \theta)`$ in suitable topology.
 
 Implies NNs (universal approximators) can learn bounds for dispersion $`\Phi(S_T) = \sum w_i \sigma_i^2 - \sigma_b^2`$. Trained via MSE:
 $`
 \mathcal{L}(\theta) = \frac{1}{N} \sum (f_\theta(x_i) - c_i)^2 + \lambda \|\theta\|_2^2
 `$
-Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712. [web:0][file:3][file:6]
+Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712.
 
 ## Key Results
 
-| Metric     | Single-Fold (2024-25) | Walk-Forward (2023-25) | Kelly Impact     |
-|------------|-----------------------|-------------------------|------------------|
-| Sharpe     | 0.84 [file:6]        | 0.62 ± 0.10 [file:6]  | -                |
-| Win Rate   | 61% [file:6]         | 43% [file:6]           | -                |
-| Total P&L  | 885 [file:6]         | 977 [file:6]           | +127% [file:6]   |
-| # Trades   | 298 [file:6]         | 462 [file:6]           | -                |
-| Max DD     | -2.9% [file:6]       | -7.8% [file:6]         | -                |
+| Metric     | Single-Fold (2024-25) | Walk-Forward (2023-25) | Kelly Impact      |
+|------------|-----------------------|------------------------|-------------------|
+| Sharpe     | 0.84                  | 0.62 ± 0.10            | -                 |
+| Win Rate   | 61%                   | 43%                    | -                 |
+| Total P&L  | 885                   | 977                    | +127%             |
+| # Trades   | 298                   | 462                    | -                 |
+| Max DD     | -2.9%                 | -7.8%                  | -                 |
 
-1,926 obs (2018-25), zero NaNs. Opt threshold 2σ. [file:6]
+1,926 obs (2018-25), zero NaNs. Opt threshold 2σ. 
 
 ## Pipeline
 
@@ -45,29 +43,29 @@ Adam $`lr=10^{-3}`$, early stopping; val R²=0.88, test 0.9712. [web:0][file:3][
 ## Notebooks
 
 - **00_monte_carlo_synthetic_options.ipynb**
-- **01_framework.ipynb**: Model-free pricing framework & data pipeline. [file:4]
-- **02_feature_architecture.ipynb**: 274-dimensional feature engineering & signal strength. [file:5]
-- **03_neural_network_training_final.ipynb**: NN training & test evaluation (test R²=0.9712). [file:3]
-- **04_signal_generation.ipynb**: Signal generation & threshold optimisation. [file:1]
-- **05_walk_forward_analysis.ipynb**: Regime-aware robustness & position sizing. [file:2]
+- **01_framework.ipynb**: Model-free pricing framework & data pipeline.
+- **02_feature_architecture.ipynb**: 274-dimensional feature engineering & signal strength. 
+- **03_neural_network_training_final.ipynb**: NN training & test evaluation (test R²=0.9712).
+- **04_signal_generation.ipynb**: Signal generation & threshold optimisation.
+- **05_walk_forward_analysis.ipynb**: Regime-aware robustness & position sizing.
 
 ## Setup
 
 1. Create Conda `env`:
 2. Jupyter: Run 00→05.
-3. `streamlit run dashboard.py` (interactive views). [file:6]
+3. `streamlit run dashboard.py` (interactive views).
 
-Stack: PyTorch 2.0.1, Pandas/NumPy/sklearn, Streamlit/Plotly. Data: Train/Val/Test splits ~1448/180/298 days. [file:6]
+Stack: PyTorch 2.0.1, Pandas/NumPy/sklearn, Streamlit/Plotly. Data: Train/Val/Test splits ~1448/180/298 days.
 
 ## Limitations
 
 - Synthetic IVs (no live options).
 - Historical only; no real-time/live trading.
-- Single NN; no ensembles/regimes/SHAP. [file:6]
+- Single NN; no ensembles/regimes/SHAP. 
 
 ## References
 
-- Neufeld, A., & Sester, J. (2023). A deep learning approach to data-driven model-free pricing and to martingale optimal transport. IEEE Transactions on Information Theory, 69(5), 3043-3064. [web:0]
-- Jacquier & Slaoui (2010). Dispersion trades with variance swaps. arXiv:1004.0125. [web:18]
+- Neufeld, A., & Sester, J. (2023). A deep learning approach to data-driven model-free pricing and to martingale optimal transport. IEEE Transactions on Information Theory, 69(5), 3043-3064.
+- Jacquier & Slaoui (2010). Dispersion trades with variance swaps. arXiv:1004.0125.
 
 MIT License. Paris, FR – Jan 24, 2026.
